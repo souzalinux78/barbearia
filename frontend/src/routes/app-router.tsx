@@ -3,12 +3,14 @@ import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppLayout } from "../layouts/app-layout";
 import { RequireAuth } from "./require-auth";
 import { LoginPage } from "../pages/login-page";
-import { DashboardPage } from "../pages/dashboard-page";
 import { ClientsPage } from "../pages/clients-page";
 import { ServicesPage } from "../pages/services-page";
 import { ProductsPage } from "../pages/products-page";
 import { SettingsPage } from "../pages/settings-page";
 
+const DashboardPage = lazy(() =>
+  import("../pages/dashboard-page").then((module) => ({ default: module.DashboardPage }))
+);
 const DailyView = lazy(() => import("../pages/appointments/DailyView").then((module) => ({ default: module.DailyView })));
 const WeeklyView = lazy(() => import("../pages/appointments/WeeklyView").then((module) => ({ default: module.WeeklyView })));
 const NewAppointment = lazy(() =>
@@ -27,6 +29,21 @@ const Commissions = lazy(() =>
   import("../pages/financial/Commissions").then((module) => ({ default: module.Commissions }))
 );
 const DRE = lazy(() => import("../pages/financial/DRE").then((module) => ({ default: module.DRE })));
+const Plans = lazy(() =>
+  import("../pages/billing/Plans").then((module) => ({ default: module.Plans }))
+);
+const Subscription = lazy(() =>
+  import("../pages/billing/Subscription").then((module) => ({ default: module.Subscription }))
+);
+const BillingHistory = lazy(() =>
+  import("../pages/billing/BillingHistory").then((module) => ({ default: module.BillingHistory }))
+);
+const Upgrade = lazy(() =>
+  import("../pages/billing/Upgrade").then((module) => ({ default: module.Upgrade }))
+);
+const OfflinePage = lazy(() =>
+  import("../pages/Offline").then((module) => ({ default: module.OfflinePage }))
+);
 
 export const AppRouter = () => (
   <BrowserRouter>
@@ -49,7 +66,12 @@ export const AppRouter = () => (
             <Route path="/finance/dre" element={<DRE />} />
             <Route path="/services" element={<ServicesPage />} />
             <Route path="/products" element={<ProductsPage />} />
+            <Route path="/billing/plans" element={<Plans />} />
+            <Route path="/billing/subscription" element={<Subscription />} />
+            <Route path="/billing/history" element={<BillingHistory />} />
+            <Route path="/billing/upgrade" element={<Upgrade />} />
             <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/offline" element={<OfflinePage />} />
           </Route>
         </Route>
 

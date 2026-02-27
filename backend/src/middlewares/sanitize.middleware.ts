@@ -1,6 +1,10 @@
 import { NextFunction, Request, Response } from "express";
 
 const sanitize = (input: unknown): unknown => {
+  if (Buffer.isBuffer(input)) {
+    return input;
+  }
+
   if (typeof input === "string") {
     return input.replace(/[<>]/g, "").trim();
   }

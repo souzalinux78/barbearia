@@ -1,5 +1,6 @@
 import { RoleName } from "@prisma/client";
 import { Router } from "express";
+import { checkPlanLimits } from "../../middlewares/plan-limits.middleware";
 import { authorize } from "../../middlewares/role.middleware";
 import { validate } from "../../middlewares/validate.middleware";
 import {
@@ -45,6 +46,7 @@ appointmentsRoutes.get("/no-show-stats", validate(noShowStatsSchema, "query"), n
 appointmentsRoutes.post(
   "/",
   authorize(RoleName.OWNER, RoleName.ADMIN, RoleName.RECEPTION, RoleName.BARBER),
+  checkPlanLimits({ enforceAppointmentsMonth: true }),
   validate(createAppointmentSchema),
   createAppointmentController
 );

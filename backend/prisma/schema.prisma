@@ -44,9 +44,28 @@ enum ExpenseType {
 }
 
 enum SubscriptionStatus {
-  TRIAL
   ACTIVE
   PAST_DUE
+  CANCELED
+  INCOMPLETE
+  TRIALING
+}
+
+enum BillingGateway {
+  STRIPE
+  PIX
+}
+
+enum PlanName {
+  FREE
+  PRO
+  PREMIUM
+}
+
+enum BillingPaymentStatus {
+  PENDING
+  PAID
+  FAILED
   CANCELED
 }
 
@@ -74,6 +93,10 @@ model Tenant {
   products            Product[]
   inventoryLogs       InventoryMovement[]
   subscription        Subscription?
+  billingHistory      BillingHistory[]
+  gatewayConfig       PaymentGatewayConfig?
+  billingLogs         BillingLog[]
+  pushSubscriptions   PushSubscription[]
   createdAt           DateTime            @default(now()) @map("created_at")
   updatedAt           DateTime            @updatedAt @map("updated_at")
 
@@ -109,11 +132,28 @@ model User {
   appointments     Appointment[]       @relation("BarberAppointments")
   commissions      Commission[]
   inventoryLogs    InventoryMovement[]
+  pushSubscriptions PushSubscription[]
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
 
   @@unique([tenantId, email])
   @@map("users")
+}
+
+model PushSubscription {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  userId    String   @map("user_id") @db.Uuid
+  endpoint  String   @unique
+  p256dh    String
+  auth      String
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, userId])
+  @@index([tenantId])
+  @@map("push_subscriptions")
 }
 
 model Client {
@@ -181,6 +221,7 @@ model Appointment {
   @@index([date])
   @@index([barberId])
   @@index([tenantId, date, barberId])
+  @@index([tenantId, status, date])
   @@map("appointments")
 }
 
@@ -199,6 +240,7 @@ model AppointmentService {
 
   @@unique([appointmentId, serviceId])
   @@index([tenantId])
+  @@index([tenantId, serviceId])
   @@map("appointment_services")
 }
 
@@ -220,6 +262,7 @@ model Payment {
 
   @@index([tenantId])
   @@index([tenantId, paidAt])
+  @@index([tenantId, status, paidAt])
   @@index([status])
   @@map("payments")
 }
@@ -240,6 +283,7 @@ model Commission {
 
   @@index([tenantId])
   @@index([tenantId, barberId])
+  @@index([tenantId, createdAt])
   @@map("commissions")
 }
 
@@ -303,15 +347,91 @@ model InventoryMovement {
 }
 
 model Subscription {
-  id        String             @id @default(uuid()) @db.Uuid
-  tenantId  String             @unique @map("tenant_id") @db.Uuid
-  plan      String
-  status    SubscriptionStatus @default(TRIAL)
-  startAt   DateTime           @default(now()) @map("start_at")
-  endAt     DateTime?          @map("end_at")
-  tenant    Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  createdAt DateTime           @default(now()) @map("created_at")
-  updatedAt DateTime           @updatedAt @map("updated_at")
+  id                     String             @id @default(uuid()) @db.Uuid
+  tenantId               String             @unique @map("tenant_id") @db.Uuid
+  planId                 String             @map("plan_id") @db.Uuid
+  pendingPlanId          String?            @map("pending_plan_id") @db.Uuid
+  gateway                BillingGateway
+  externalSubscriptionId String?            @map("external_subscription_id")
+  status                 SubscriptionStatus @default(TRIALING)
+  currentPeriodStart     DateTime           @map("current_period_start")
+  currentPeriodEnd       DateTime           @map("current_period_end")
+  cancelAtPeriodEnd      Boolean            @default(false) @map("cancel_at_period_end")
+  tenant                 Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  plan                   Plan               @relation(fields: [planId], references: [id])
+  pendingPlan            Plan?              @relation("PendingPlan", fields: [pendingPlanId], references: [id])
+  billingHistory         BillingHistory[]
+  createdAt              DateTime           @default(now()) @map("created_at")
+  updatedAt              DateTime           @updatedAt @map("updated_at")
+
+  @@index([planId])
+  @@index([pendingPlanId])
+  @@index([status])
 
   @@map("subscriptions")
+}
+
+model Plan {
+  id                   String         @id @default(uuid()) @db.Uuid
+  name                 PlanName       @unique
+  price                Decimal        @db.Decimal(10, 2)
+  maxUsers             Int            @map("max_users")
+  maxBarbers           Int            @map("max_barbers")
+  maxAppointmentsMonth Int            @map("max_appointments_month")
+  features             Json
+  subscriptions        Subscription[]
+  pendingSubscriptions Subscription[] @relation("PendingPlan")
+  createdAt            DateTime       @default(now()) @map("created_at")
+
+  @@map("plans")
+}
+
+model BillingHistory {
+  id             String               @id @default(uuid()) @db.Uuid
+  tenantId       String               @map("tenant_id") @db.Uuid
+  subscriptionId String               @map("subscription_id") @db.Uuid
+  amount         Decimal              @db.Decimal(10, 2)
+  status         BillingPaymentStatus
+  gateway        BillingGateway
+  paidAt         DateTime?            @map("paid_at")
+  externalRef    String?              @map("external_ref")
+  metadata       Json?
+  tenant         Tenant               @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  subscription   Subscription         @relation(fields: [subscriptionId], references: [id], onDelete: Cascade)
+  createdAt      DateTime             @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@index([subscriptionId])
+  @@index([status])
+  @@map("billing_history")
+}
+
+model PaymentGatewayConfig {
+  id                  String    @id @default(uuid()) @db.Uuid
+  tenantId            String?   @unique @map("tenant_id") @db.Uuid
+  stripeActive        Boolean   @default(false) @map("stripe_active")
+  pixActive           Boolean   @default(false) @map("pix_active")
+  stripeSecretKey     String?   @map("stripe_secret_key")
+  stripeWebhookSecret String?   @map("stripe_webhook_secret")
+  pixApiKey           String?   @map("pix_api_key")
+  pixWebhookSecret    String?   @map("pix_webhook_secret")
+  tenant              Tenant?   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt           DateTime  @default(now()) @map("created_at")
+  updatedAt           DateTime  @updatedAt @map("updated_at")
+
+  @@index([stripeActive, pixActive])
+  @@map("payment_gateway_configs")
+}
+
+model BillingLog {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  level     String
+  event     String
+  payload   Json?
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@map("billing_logs")
 }

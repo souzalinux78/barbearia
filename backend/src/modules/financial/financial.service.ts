@@ -2,6 +2,10 @@ import { PaymentStatus, Prisma, RoleName } from "@prisma/client";
 import { prisma } from "../../config/prisma";
 import { HttpError } from "../../utils/http-error";
 import {
+  notifyCommissionPaid,
+  notifyPaymentConfirmed
+} from "../notifications/notifications.service";
+import {
   calculateCommissionAmount,
   calculateDre
 } from "./financial.calculations";
@@ -88,6 +92,9 @@ const paginate = <T>(items: T[], page: number, pageSize: number) => {
     }
   };
 };
+const fireNotification = (operation: Promise<unknown>) => {
+  operation.catch(() => null);
+};
 
 export const createManualPayment = async (tenantId: string, payload: ManualPaymentInput) => {
   const client = await prisma.client.findFirst({
@@ -112,7 +119,7 @@ export const createManualPayment = async (tenantId: string, payload: ManualPayme
     }
   }
 
-  return prisma.payment.create({
+  const payment = await prisma.payment.create({
     data: {
       tenantId,
       appointmentId: payload.appointmentId,
@@ -124,6 +131,12 @@ export const createManualPayment = async (tenantId: string, payload: ManualPayme
       notes: payload.notes
     }
   });
+
+  if (payment.status === PaymentStatus.PAGO) {
+    fireNotification(notifyPaymentConfirmed(tenantId, Number(payment.amount)));
+  }
+
+  return payment;
 };
 
 export const getCashflow = async (tenantId: string, query: CashflowQueryInput) => {
@@ -371,7 +384,7 @@ export const payCommission = async (
     : Number(commission.amount);
   const amount = payload.amount ?? amountFromPercentage;
 
-  return prisma.commission.update({
+  const updated = await prisma.commission.update({
     where: {
       id: commissionId
     },
@@ -381,6 +394,12 @@ export const payCommission = async (
       amount
     }
   });
+
+  if (updated.paid) {
+    fireNotification(notifyCommissionPaid(tenantId, updated.barberId, Number(updated.amount)));
+  }
+
+  return updated;
 };
 
 export const getDre = async (tenantId: string, query: DreQueryInput) => {

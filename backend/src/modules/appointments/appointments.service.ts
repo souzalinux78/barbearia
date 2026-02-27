@@ -1,5 +1,9 @@
 import { AppointmentStatus, RoleName } from "@prisma/client";
 import { prisma } from "../../config/prisma";
+import {
+  notifyAppointmentCanceled,
+  notifyNewAppointment
+} from "../notifications/notifications.service";
 import { HttpError } from "../../utils/http-error";
 import {
   appointmentsRepository,
@@ -39,6 +43,9 @@ const normalizeDate = (value: string | Date): Date => {
 };
 
 const toTimeString = (value: Date): string => value.toISOString().slice(11, 16);
+const fireNotification = (operation: Promise<unknown>) => {
+  operation.catch(() => null);
+};
 
 type AppointmentRecord = NonNullable<
   Awaited<ReturnType<AppointmentsRepository["findAppointmentById"]>>
@@ -230,6 +237,14 @@ export const createAppointment = async (tenantId: string, payload: CreateAppoint
     serviceRows: servicesInfo.rows
   });
 
+  fireNotification(
+    notifyNewAppointment({
+      tenantId,
+      clientName: created.client?.name,
+      timeLabel: toTimeString(created.startTime)
+    })
+  );
+
   return toAppointmentDTO(repository, tenantId, created);
 };
 
@@ -419,6 +434,16 @@ export const updateAppointment = async (
     return appointment;
   });
 
+  if (current.status !== AppointmentStatus.CANCELADO && updated.status === AppointmentStatus.CANCELADO) {
+    fireNotification(
+      notifyAppointmentCanceled({
+        tenantId,
+        clientName: updated.client?.name,
+        timeLabel: toTimeString(updated.startTime)
+      })
+    );
+  }
+
   return toAppointmentDTO(appointmentsRepository, tenantId, updated);
 };
 
@@ -437,6 +462,14 @@ export const deleteAppointment = async (
   const cancelled = await appointmentsRepository.updateAppointment(tenantId, appointmentId, {
     status: AppointmentStatus.CANCELADO
   });
+
+  fireNotification(
+    notifyAppointmentCanceled({
+      tenantId,
+      clientName: cancelled.client?.name,
+      timeLabel: toTimeString(cancelled.startTime)
+    })
+  );
 
   return toAppointmentDTO(appointmentsRepository, tenantId, cancelled);
 };
@@ -467,6 +500,16 @@ export const updateAppointmentStatus = async (
     await applySideEffectsOnStatusChange(repository, current.status, payload.status, appointment);
     return appointment;
   });
+
+  if (current.status !== AppointmentStatus.CANCELADO && payload.status === AppointmentStatus.CANCELADO) {
+    fireNotification(
+      notifyAppointmentCanceled({
+        tenantId,
+        clientName: updated.client?.name,
+        timeLabel: toTimeString(updated.startTime)
+      })
+    );
+  }
 
   return toAppointmentDTO(appointmentsRepository, tenantId, updated);
 };

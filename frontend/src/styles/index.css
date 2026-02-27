@@ -14,6 +14,11 @@
   --success: #0e3a2d;
 }
 
+html,
+body {
+  overscroll-behavior-y: none;
+}
+
 body {
   font-family: Inter, sans-serif;
   background:
@@ -22,8 +27,98 @@ body {
     var(--bg);
   color: var(--text);
   min-height: 100vh;
+  margin: 0;
+  -webkit-tap-highlight-color: transparent;
+  -webkit-overflow-scrolling: touch;
 }
 
 #root {
   min-height: 100vh;
+}
+
+@keyframes route-fade {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes splash-pulse {
+  0% {
+    opacity: 0.65;
+  }
+  50% {
+    opacity: 1;
+  }
+  100% {
+    opacity: 0.65;
+  }
+}
+
+@keyframes fade-up {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.fade-up {
+  animation: fade-up 0.45s ease both;
+}
+
+.route-fade {
+  animation: route-fade 220ms ease both;
+}
+
+.app-splash {
+  position: fixed;
+  inset: 0;
+  z-index: 120;
+  display: grid;
+  place-content: center;
+  gap: 12px;
+  text-align: center;
+  background:
+    radial-gradient(circle at 25% 20%, rgba(198, 164, 106, 0.2), transparent 38%),
+    radial-gradient(circle at 85% 10%, rgba(14, 58, 45, 0.22), transparent 45%),
+    #101214;
+  color: #f1f5f9;
+  transition: opacity 0.36s ease, visibility 0.36s ease;
+}
+
+.app-splash--hide {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.app-splash__brand {
+  font-size: clamp(1.2rem, 3.4vw, 1.8rem);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+}
+
+.app-splash__text {
+  margin: 0;
+  color: #94a3b8;
+  animation: splash-pulse 1.3s ease infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .route-fade,
+  .fade-up,
+  .app-splash__text {
+    animation: none !important;
+  }
+
+  .app-splash {
+    transition: none;
+  }
 }

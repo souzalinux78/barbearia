@@ -1,6 +1,7 @@
 import { RoleName } from "@prisma/client";
 import { Router } from "express";
 import { authorize } from "../../middlewares/role.middleware";
+import { checkPlanLimits } from "../../middlewares/plan-limits.middleware";
 import { validate } from "../../middlewares/validate.middleware";
 import {
   cashflowController,
@@ -71,6 +72,7 @@ financialRoutes.patch(
 financialRoutes.get(
   "/dre",
   authorize(RoleName.OWNER, RoleName.ADMIN),
+  checkPlanLimits({ requiredFeature: "premium_analytics" }),
   validate(dreQuerySchema, "query"),
   dreController
 );
@@ -82,6 +84,7 @@ financialRoutes.get(
 financialRoutes.get(
   "/metrics",
   authorize(RoleName.OWNER, RoleName.ADMIN),
+  checkPlanLimits({ requiredFeature: "premium_analytics" }),
   validate(metricsQuerySchema, "query"),
   metricsController
 );

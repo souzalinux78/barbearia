@@ -8,6 +8,19 @@ export const api = axios.create({
   timeout: 15000
 });
 
+const isCriticalOfflineMutation = (url = "", method = "get") => {
+  const normalizedMethod = method.toLowerCase();
+  if (normalizedMethod === "get" || normalizedMethod === "head" || normalizedMethod === "options") {
+    return false;
+  }
+  return (
+    url.includes("/appointments") ||
+    url.includes("/financial/payment") ||
+    url.includes("/billing/subscribe") ||
+    url.includes("/billing/cancel")
+  );
+};
+
 let refreshPromise: Promise<string | null> | null = null;
 
 const refreshAccessToken = async (): Promise<string | null> => {
@@ -41,6 +54,10 @@ const refreshAccessToken = async (): Promise<string | null> => {
 };
 
 api.interceptors.request.use((config) => {
+  if (typeof navigator !== "undefined" && !navigator.onLine && isCriticalOfflineMutation(config.url, config.method)) {
+    return Promise.reject(new Error("OFFLINE_BLOCKED"));
+  }
+
   const { accessToken } = useAuthStore.getState();
   if (accessToken) {
     config.headers.Authorization = `Bearer ${accessToken}`;

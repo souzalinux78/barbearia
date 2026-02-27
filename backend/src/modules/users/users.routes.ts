@@ -1,6 +1,7 @@
 import { Router } from "express";
 import { RoleName } from "@prisma/client";
 import { authorize } from "../../middlewares/role.middleware";
+import { checkPlanLimits } from "../../middlewares/plan-limits.middleware";
 import { validate } from "../../middlewares/validate.middleware";
 import { createUserSchema, listUsersSchema } from "./users.schemas";
 import { createUserController, listUsersController, meController } from "./users.controller";
@@ -17,6 +18,7 @@ usersRoutes.get(
 usersRoutes.post(
   "/",
   authorize(RoleName.OWNER, RoleName.ADMIN),
+  checkPlanLimits({ enforceUsers: true, enforceBarbersByBodyRole: true }),
   validate(createUserSchema),
   createUserController
 );

@@ -7,6 +7,7 @@ import {
   generateRefreshToken,
   verifyRefreshToken
 } from "../../utils/jwt";
+import { ensureTenantBillingBootstrap } from "../billing/billing.service";
 import { loginSchema, refreshSchema, registerTenantSchema } from "./auth.schemas";
 
 type RegisterTenantInput = ReturnType<typeof registerTenantSchema.parse>;
@@ -73,17 +74,10 @@ export const registerTenant = async (input: RegisterTenantInput) => {
       include: { role: true }
     });
 
-    await tx.subscription.create({
-      data: {
-        tenantId: tenant.id,
-        plan: "PREMIUM_TRIAL",
-        status: "TRIAL",
-        endAt: new Date(Date.now() + 14 * 24 * 60 * 60 * 1000)
-      }
-    });
-
     return { tenant, owner };
   });
+
+  await ensureTenantBillingBootstrap(result.tenant.id);
 
   const payload = authPayloadFromUser(result.owner);
   const accessToken = generateAccessToken(payload);
