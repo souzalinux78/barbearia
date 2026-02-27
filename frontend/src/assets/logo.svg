@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 160 36">
+  <rect width="36" height="36" rx="8" fill="#101214"/>
+  <path d="M8 10h20v4H8zm0 7h20v4H8zm0 7h13v4H8z" fill="#C6A46A"/>
+  <text x="46" y="24" fill="#F1F5F9" font-family="Inter, sans-serif" font-size="14" font-weight="700">
+    Barbearia Premium
+  </text>
+</svg>

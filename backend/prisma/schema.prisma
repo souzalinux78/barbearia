@@ -1,0 +1,262 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum RoleName {
+  OWNER
+  ADMIN
+  BARBER
+  RECEPTION
+}
+
+enum AppointmentStatus {
+  AGENDADO
+  CONFIRMADO
+  EM_ATENDIMENTO
+  FINALIZADO
+  CANCELADO
+  NO_SHOW
+}
+
+enum PaymentMethod {
+  CASH
+  CREDIT_CARD
+  DEBIT_CARD
+  PIX
+  TRANSFER
+}
+
+enum SubscriptionStatus {
+  TRIAL
+  ACTIVE
+  PAST_DUE
+  CANCELED
+}
+
+enum InventoryMovementType {
+  IN
+  OUT
+  ADJUSTMENT
+}
+
+model Tenant {
+  id            String             @id @default(uuid()) @db.Uuid
+  name          String
+  slug          String             @unique
+  email         String?
+  phone         String?
+  users         User[]
+  roles         Role[]
+  clients       Client[]
+  services      Service[]
+  appointments  Appointment[]
+  payments      Payment[]
+  commissions   Commission[]
+  expenses      Expense[]
+  products      Product[]
+  inventoryLogs InventoryMovement[]
+  subscription  Subscription?
+  createdAt     DateTime           @default(now()) @map("created_at")
+  updatedAt     DateTime           @updatedAt @map("updated_at")
+
+  @@map("tenants")
+}
+
+model Role {
+  id        String   @id @default(uuid()) @db.Uuid
+  tenantId  String   @map("tenant_id") @db.Uuid
+  name      RoleName
+  users     User[]
+  tenant    Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, name])
+  @@map("roles")
+}
+
+model User {
+  id               String        @id @default(uuid()) @db.Uuid
+  tenantId         String        @map("tenant_id") @db.Uuid
+  roleId           String        @map("role_id") @db.Uuid
+  name             String
+  email            String
+  phone            String?
+  passwordHash     String        @map("password_hash")
+  refreshTokenHash String?       @map("refresh_token_hash")
+  active           Boolean       @default(true)
+  tenant           Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  role             Role          @relation(fields: [roleId], references: [id])
+  appointments     Appointment[] @relation("BarberAppointments")
+  commissions      Commission[]
+  inventoryLogs    InventoryMovement[]
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+
+  @@unique([tenantId, email])
+  @@map("users")
+}
+
+model Client {
+  id           String        @id @default(uuid()) @db.Uuid
+  tenantId     String        @map("tenant_id") @db.Uuid
+  name         String
+  email        String?
+  phone        String?
+  birthDate    DateTime?     @map("birth_date")
+  notes        String?
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("clients")
+}
+
+model Service {
+  id           String        @id @default(uuid()) @db.Uuid
+  tenantId     String        @map("tenant_id") @db.Uuid
+  name         String
+  description  String?
+  durationMin  Int           @map("duration_min")
+  price        Decimal       @db.Decimal(10, 2)
+  active       Boolean       @default(true)
+  tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
+  createdAt    DateTime      @default(now()) @map("created_at")
+  updatedAt    DateTime      @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("services")
+}
+
+model Appointment {
+  id         String            @id @default(uuid()) @db.Uuid
+  tenantId   String            @map("tenant_id") @db.Uuid
+  clientId   String            @map("client_id") @db.Uuid
+  serviceId  String            @map("service_id") @db.Uuid
+  barberId   String            @map("barber_id") @db.Uuid
+  startAt    DateTime          @map("start_at")
+  endAt      DateTime?         @map("end_at")
+  status     AppointmentStatus @default(AGENDADO)
+  notes      String?
+  tenant     Tenant            @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client     Client            @relation(fields: [clientId], references: [id])
+  service    Service           @relation(fields: [serviceId], references: [id])
+  barber     User              @relation("BarberAppointments", fields: [barberId], references: [id])
+  payments   Payment[]
+  commission Commission[]
+  createdAt  DateTime          @default(now()) @map("created_at")
+  updatedAt  DateTime          @updatedAt @map("updated_at")
+
+  @@index([tenantId, startAt])
+  @@map("appointments")
+}
+
+model Payment {
+  id            String        @id @default(uuid()) @db.Uuid
+  tenantId      String        @map("tenant_id") @db.Uuid
+  appointmentId String?       @map("appointment_id") @db.Uuid
+  method        PaymentMethod
+  amount        Decimal       @db.Decimal(10, 2)
+  paidAt        DateTime      @default(now()) @map("paid_at")
+  notes         String?
+  tenant        Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  appointment   Appointment?  @relation(fields: [appointmentId], references: [id])
+  createdAt     DateTime      @default(now()) @map("created_at")
+  updatedAt     DateTime      @updatedAt @map("updated_at")
+
+  @@index([tenantId, paidAt])
+  @@map("payments")
+}
+
+model Commission {
+  id            String       @id @default(uuid()) @db.Uuid
+  tenantId      String       @map("tenant_id") @db.Uuid
+  userId        String       @map("user_id") @db.Uuid
+  appointmentId String?      @map("appointment_id") @db.Uuid
+  amount        Decimal      @db.Decimal(10, 2)
+  paid          Boolean      @default(false)
+  tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user          User         @relation(fields: [userId], references: [id])
+  appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  createdAt     DateTime     @default(now()) @map("created_at")
+  updatedAt     DateTime     @updatedAt @map("updated_at")
+
+  @@index([tenantId])
+  @@map("commissions")
+}
+
+model Expense {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  category    String
+  description String?
+  amount      Decimal  @db.Decimal(10, 2)
+  paidAt      DateTime @default(now()) @map("paid_at")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+
+  @@index([tenantId, paidAt])
+  @@map("expenses")
+}
+
+model Product {
+  id             String              @id @default(uuid()) @db.Uuid
+  tenantId       String              @map("tenant_id") @db.Uuid
+  name           String
+  sku            String?
+  price          Decimal             @db.Decimal(10, 2)
+  cost           Decimal?            @db.Decimal(10, 2)
+  stockQuantity  Int                 @default(0) @map("stock_quantity")
+  minStock       Int                 @default(0) @map("min_stock")
+  active         Boolean             @default(true)
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  inventoryMoves InventoryMovement[]
+  createdAt      DateTime            @default(now()) @map("created_at")
+  updatedAt      DateTime            @updatedAt @map("updated_at")
+
+  @@unique([tenantId, sku])
+  @@index([tenantId])
+  @@map("products")
+}
+
+model InventoryMovement {
+  id            String                @id @default(uuid()) @db.Uuid
+  tenantId      String                @map("tenant_id") @db.Uuid
+  productId     String                @map("product_id") @db.Uuid
+  performedById String?               @map("performed_by_id") @db.Uuid
+  type          InventoryMovementType
+  quantity      Int
+  reason        String?
+  unitCost      Decimal?              @map("unit_cost") @db.Decimal(10, 2)
+  tenant        Tenant                @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  product       Product               @relation(fields: [productId], references: [id])
+  performedBy   User?                 @relation(fields: [performedById], references: [id])
+  createdAt     DateTime              @default(now()) @map("created_at")
+  updatedAt     DateTime              @updatedAt @map("updated_at")
+
+  @@index([tenantId, createdAt])
+  @@map("inventory_movements")
+}
+
+model Subscription {
+  id        String             @id @default(uuid()) @db.Uuid
+  tenantId  String             @unique @map("tenant_id") @db.Uuid
+  plan      String
+  status    SubscriptionStatus @default(TRIAL)
+  startAt   DateTime           @default(now()) @map("start_at")
+  endAt     DateTime?          @map("end_at")
+  tenant    Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime           @default(now()) @map("created_at")
+  updatedAt DateTime           @updatedAt @map("updated_at")
+
+  @@map("subscriptions")
+}
