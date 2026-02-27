@@ -1,10 +1,12 @@
 import {
   AppointmentStatus,
+  PaymentStatus,
   Prisma,
   PrismaClient,
   RoleName
 } from "@prisma/client";
 import { prisma } from "../../config/prisma";
+import { calculateCommissionAmount } from "../financial/financial.calculations";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -374,10 +376,25 @@ export class AppointmentsRepository {
     barberId: string;
     amount: number;
   }) {
+    const appointment = await this.db.appointment.findFirst({
+      where: {
+        tenantId: data.tenantId,
+        id: data.appointmentId
+      },
+      select: {
+        clientId: true
+      }
+    });
+
+    if (!appointment?.clientId) {
+      return;
+    }
+
     const existingPayment = await this.db.payment.findFirst({
       where: {
         tenantId: data.tenantId,
-        appointmentId: data.appointmentId
+        appointmentId: data.appointmentId,
+        status: PaymentStatus.PAGO
       }
     });
 
@@ -386,18 +403,32 @@ export class AppointmentsRepository {
         data: {
           tenantId: data.tenantId,
           appointmentId: data.appointmentId,
-          method: "CASH",
+          clientId: appointment.clientId,
+          method: "DINHEIRO",
+          status: "PAGO",
           amount: data.amount,
+          paidAt: new Date(),
           notes: "Pagamento automatico na finalizacao do agendamento."
         }
       });
     }
 
+    const barber = await this.db.user.findFirst({
+      where: {
+        id: data.barberId,
+        tenantId: data.tenantId
+      },
+      select: {
+        commissionRate: true
+      }
+    });
+    const percentage = Number(barber?.commissionRate ?? 40);
+
     const existingCommission = await this.db.commission.findFirst({
       where: {
         tenantId: data.tenantId,
         appointmentId: data.appointmentId,
-        userId: data.barberId
+        barberId: data.barberId
       }
     });
 
@@ -406,8 +437,9 @@ export class AppointmentsRepository {
         data: {
           tenantId: data.tenantId,
           appointmentId: data.appointmentId,
-          userId: data.barberId,
-          amount: Number((data.amount * 0.4).toFixed(2)),
+          barberId: data.barberId,
+          percentage,
+          amount: calculateCommissionAmount(data.amount, percentage),
           paid: false
         }
       });

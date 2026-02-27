@@ -1,4 +1,4 @@
-import { AppointmentStatus } from "@prisma/client";
+import { AppointmentStatus, PaymentStatus } from "@prisma/client";
 import { prisma } from "../../config/prisma";
 
 const startOfDay = (date: Date): Date => {
@@ -31,6 +31,7 @@ export const getOverview = async (tenantId: string) => {
         _sum: { amount: true },
         where: {
           tenantId,
+          status: PaymentStatus.PAGO,
           paidAt: {
             gte: dayStart,
             lte: dayEnd
@@ -73,6 +74,7 @@ export const getOverview = async (tenantId: string) => {
       prisma.payment.findMany({
         where: {
           tenantId,
+          status: PaymentStatus.PAGO,
           paidAt: {
             gte: startOfDay(new Date(today.getTime() - 6 * 24 * 60 * 60 * 1000)),
             lte: dayEnd

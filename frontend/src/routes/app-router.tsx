@@ -5,7 +5,6 @@ import { RequireAuth } from "./require-auth";
 import { LoginPage } from "../pages/login-page";
 import { DashboardPage } from "../pages/dashboard-page";
 import { ClientsPage } from "../pages/clients-page";
-import { FinancePage } from "../pages/finance-page";
 import { ServicesPage } from "../pages/services-page";
 import { ProductsPage } from "../pages/products-page";
 import { SettingsPage } from "../pages/settings-page";
@@ -15,6 +14,19 @@ const WeeklyView = lazy(() => import("../pages/appointments/WeeklyView").then((m
 const NewAppointment = lazy(() =>
   import("../pages/appointments/NewAppointment").then((module) => ({ default: module.NewAppointment }))
 );
+const DashboardFinancial = lazy(() =>
+  import("../pages/financial/DashboardFinancial").then((module) => ({ default: module.DashboardFinancial }))
+);
+const CashFlow = lazy(() =>
+  import("../pages/financial/CashFlow").then((module) => ({ default: module.CashFlow }))
+);
+const Expenses = lazy(() =>
+  import("../pages/financial/Expenses").then((module) => ({ default: module.Expenses }))
+);
+const Commissions = lazy(() =>
+  import("../pages/financial/Commissions").then((module) => ({ default: module.Commissions }))
+);
+const DRE = lazy(() => import("../pages/financial/DRE").then((module) => ({ default: module.DRE })));
 
 export const AppRouter = () => (
   <BrowserRouter>
@@ -30,7 +42,11 @@ export const AppRouter = () => (
             <Route path="/appointments/week" element={<WeeklyView />} />
             <Route path="/appointments/new" element={<NewAppointment />} />
             <Route path="/clients" element={<ClientsPage />} />
-            <Route path="/finance" element={<FinancePage />} />
+            <Route path="/finance" element={<DashboardFinancial />} />
+            <Route path="/finance/cashflow" element={<CashFlow />} />
+            <Route path="/finance/expenses" element={<Expenses />} />
+            <Route path="/finance/commissions" element={<Commissions />} />
+            <Route path="/finance/dre" element={<DRE />} />
             <Route path="/services" element={<ServicesPage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/settings" element={<SettingsPage />} />

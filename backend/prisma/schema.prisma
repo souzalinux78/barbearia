@@ -25,11 +25,22 @@ enum AppointmentStatus {
 }
 
 enum PaymentMethod {
-  CASH
-  CREDIT_CARD
-  DEBIT_CARD
+  DINHEIRO
   PIX
-  TRANSFER
+  CARTAO_CREDITO
+  CARTAO_DEBITO
+  TRANSFERENCIA
+}
+
+enum PaymentStatus {
+  PENDENTE
+  PAGO
+  CANCELADO
+}
+
+enum ExpenseType {
+  FIXA
+  VARIAVEL
 }
 
 enum SubscriptionStatus {
@@ -92,6 +103,7 @@ model User {
   passwordHash     String              @map("password_hash")
   refreshTokenHash String?             @map("refresh_token_hash")
   active           Boolean             @default(true)
+  commissionRate   Decimal             @default(40) @map("commission_rate") @db.Decimal(5, 2)
   tenant           Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   role             Role                @relation(fields: [roleId], references: [id])
   appointments     Appointment[]       @relation("BarberAppointments")
@@ -116,6 +128,7 @@ model Client {
   noShowCount  Int           @default(0) @map("no_show_count")
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   appointments Appointment[]
+  payments     Payment[]
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
 
@@ -193,48 +206,60 @@ model Payment {
   id            String       @id @default(uuid()) @db.Uuid
   tenantId      String       @map("tenant_id") @db.Uuid
   appointmentId String?      @map("appointment_id") @db.Uuid
+  clientId      String?      @map("client_id") @db.Uuid
   method        PaymentMethod
+  status        PaymentStatus @default(PAGO)
   amount        Decimal      @db.Decimal(10, 2)
   paidAt        DateTime     @default(now()) @map("paid_at")
   notes         String?
   tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   appointment   Appointment? @relation(fields: [appointmentId], references: [id])
+  client        Client?      @relation(fields: [clientId], references: [id])
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
 
+  @@index([tenantId])
   @@index([tenantId, paidAt])
+  @@index([status])
   @@map("payments")
 }
 
 model Commission {
   id            String       @id @default(uuid()) @db.Uuid
   tenantId      String       @map("tenant_id") @db.Uuid
-  userId        String       @map("user_id") @db.Uuid
+  barberId      String       @map("barber_id") @db.Uuid
   appointmentId String?      @map("appointment_id") @db.Uuid
+  percentage    Decimal      @db.Decimal(5, 2)
   amount        Decimal      @db.Decimal(10, 2)
   paid          Boolean      @default(false)
   tenant        Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
-  user          User         @relation(fields: [userId], references: [id])
+  barber        User         @relation(fields: [barberId], references: [id])
   appointment   Appointment? @relation(fields: [appointmentId], references: [id])
   createdAt     DateTime     @default(now()) @map("created_at")
   updatedAt     DateTime     @updatedAt @map("updated_at")
 
   @@index([tenantId])
+  @@index([tenantId, barberId])
   @@map("commissions")
 }
 
 model Expense {
   id          String   @id @default(uuid()) @db.Uuid
   tenantId    String   @map("tenant_id") @db.Uuid
+  description String
   category    String
-  description String?
+  type        ExpenseType
   amount      Decimal  @db.Decimal(10, 2)
-  paidAt      DateTime @default(now()) @map("paid_at")
+  dueDate     DateTime @map("due_date") @db.Date
+  paid        Boolean  @default(false)
+  paidAt      DateTime? @map("paid_at")
   tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   createdAt   DateTime @default(now()) @map("created_at")
   updatedAt   DateTime @updatedAt @map("updated_at")
 
+  @@index([tenantId])
   @@index([tenantId, paidAt])
+  @@index([tenantId, dueDate])
   @@map("expenses")
 }
 

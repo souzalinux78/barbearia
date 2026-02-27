@@ -8,6 +8,7 @@
     "build": "tsc -p tsconfig.json",
     "start": "node dist/server.js",
     "test:appointments": "tsx --test src/modules/appointments/__tests__/appointments.rules.test.ts",
+    "test:financial": "tsx --test src/modules/financial/__tests__/financial.calculations.test.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy"
