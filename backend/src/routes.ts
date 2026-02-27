@@ -12,6 +12,7 @@ import { productsRoutes } from "./modules/products/products.routes";
 import { inventoryRoutes } from "./modules/inventory/inventory.routes";
 import { dashboardRoutes } from "./modules/dashboard/dashboard.routes";
 import { authMiddleware } from "./middlewares/auth.middleware";
+import { tenantMiddleware } from "./middlewares/tenant.middleware";
 
 export const apiRouter = Router();
 
@@ -21,6 +22,7 @@ apiRouter.get("/health", (_req, res) => {
 
 apiRouter.use("/auth", authRoutes);
 apiRouter.use(authMiddleware);
+apiRouter.use(tenantMiddleware);
 apiRouter.use("/users", usersRoutes);
 apiRouter.use("/tenants", tenantsRoutes);
 apiRouter.use("/clients", clientsRoutes);

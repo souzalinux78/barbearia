@@ -13,10 +13,17 @@ const endOfDay = (date: Date): Date => {
   return value;
 };
 
+const normalizeDate = (value: Date): Date => {
+  const date = new Date(value);
+  date.setUTCHours(0, 0, 0, 0);
+  return date;
+};
+
 export const getOverview = async (tenantId: string) => {
   const today = new Date();
   const dayStart = startOfDay(today);
   const dayEnd = endOfDay(today);
+  const todayDateOnly = normalizeDate(today);
 
   const [dailyRevenue, dailyAppointments, newClientsToday, topServicesRaw, weeklyPayments] =
     await Promise.all([
@@ -33,10 +40,7 @@ export const getOverview = async (tenantId: string) => {
       prisma.appointment.count({
         where: {
           tenantId,
-          startAt: {
-            gte: dayStart,
-            lte: dayEnd
-          }
+          date: todayDateOnly
         }
       }),
       prisma.client.count({
@@ -48,11 +52,13 @@ export const getOverview = async (tenantId: string) => {
           }
         }
       }),
-      prisma.appointment.groupBy({
+      prisma.appointmentService.groupBy({
         by: ["serviceId"],
         where: {
           tenantId,
-          status: AppointmentStatus.FINALIZADO
+          appointment: {
+            status: AppointmentStatus.FINALIZADO
+          }
         },
         _count: {
           serviceId: true
