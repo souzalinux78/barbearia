@@ -5,6 +5,7 @@ import {
   notifyCommissionPaid,
   notifyPaymentConfirmed
 } from "../notifications/notifications.service";
+import { queuePaymentConfirmedAutomation } from "../automation/automation.engine";
 import { applyManualPaymentClientSpend } from "../crm/crm.loyalty";
 import {
   calculateCommissionAmount,
@@ -140,6 +141,9 @@ export const createManualPayment = async (tenantId: string, payload: ManualPayme
       amountPaid: Number(payment.amount)
     });
     fireNotification(notifyPaymentConfirmed(tenantId, Number(payment.amount)));
+    fireNotification(
+      queuePaymentConfirmedAutomation(tenantId, payload.clientId, Number(payment.amount))
+    );
   }
 
   return payment;

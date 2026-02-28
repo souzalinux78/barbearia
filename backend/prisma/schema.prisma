@@ -84,6 +84,32 @@ enum LoyaltyTransactionType {
   EXPIRE
 }
 
+enum WhatsAppProvider {
+  OFFICIAL
+  EVOLUTION
+}
+
+enum AutomationRuleType {
+  CONFIRMATION
+  REMINDER
+  REACTIVATION
+  UPSELL
+  BIRTHDAY
+}
+
+enum WhatsAppDirection {
+  OUTBOUND
+  INBOUND
+}
+
+enum WhatsAppMessageStatus {
+  QUEUED
+  SENT
+  DELIVERED
+  FAILED
+  RECEIVED
+}
+
 enum InventoryMovementType {
   IN
   OUT
@@ -118,6 +144,10 @@ model Tenant {
   pushSubscriptions   PushSubscription[]
   loyaltyProgram      LoyaltyProgram?
   loyaltyTransactions LoyaltyTransaction[]
+  whatsAppConfig      WhatsAppConfig?
+  automationRules     AutomationRule[]
+  whatsAppMessages    WhatsAppMessage[]
+  aiConversations     AIConversation[]
   createdAt           DateTime            @default(now()) @map("created_at")
   updatedAt           DateTime            @updatedAt @map("updated_at")
 
@@ -258,6 +288,8 @@ model Client {
   appointments Appointment[]
   payments     Payment[]
   loyaltyTransactions LoyaltyTransaction[]
+  whatsAppMessages  WhatsAppMessage[]
+  aiConversations   AIConversation[]
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
 
@@ -306,6 +338,7 @@ model Appointment {
   payments            Payment[]
   commission          Commission[]
   loyaltyTransactions LoyaltyTransaction[]
+  whatsAppMessages    WhatsAppMessage[]
   createdAt           DateTime             @default(now()) @map("created_at")
   updatedAt           DateTime             @updatedAt @map("updated_at")
 
@@ -315,6 +348,75 @@ model Appointment {
   @@index([tenantId, date, barberId])
   @@index([tenantId, status, date])
   @@map("appointments")
+}
+
+model WhatsAppConfig {
+  id          String           @id @default(uuid()) @db.Uuid
+  tenantId    String           @unique @map("tenant_id") @db.Uuid
+  provider    WhatsAppProvider
+  apiUrl      String           @map("api_url")
+  apiKey      String           @map("api_key")
+  phoneNumber String           @map("phone_number")
+  active      Boolean          @default(false)
+  tenant      Tenant           @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime         @default(now()) @map("created_at")
+  updatedAt   DateTime         @updatedAt @map("updated_at")
+
+  @@index([active, provider])
+  @@map("whatsapp_configs")
+}
+
+model AutomationRule {
+  id              String             @id @default(uuid()) @db.Uuid
+  tenantId        String             @map("tenant_id") @db.Uuid
+  type            AutomationRuleType
+  active          Boolean            @default(true)
+  delayMinutes    Int                @default(0) @map("delay_minutes")
+  templateMessage String             @map("template_message")
+  tenant          Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt       DateTime           @default(now()) @map("created_at")
+  updatedAt       DateTime           @updatedAt @map("updated_at")
+
+  @@unique([tenantId, type])
+  @@index([tenantId, active, type])
+  @@map("automation_rules")
+}
+
+model WhatsAppMessage {
+  id             String              @id @default(uuid()) @db.Uuid
+  tenantId       String              @map("tenant_id") @db.Uuid
+  clientId       String              @map("client_id") @db.Uuid
+  appointmentId  String?             @map("appointment_id") @db.Uuid
+  direction      WhatsAppDirection
+  message        String
+  status         WhatsAppMessageStatus
+  automationType AutomationRuleType? @map("automation_type")
+  metadata       Json?
+  tenant         Tenant              @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client         Client              @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  appointment    Appointment?        @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  createdAt      DateTime            @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@index([tenantId, automationType, createdAt])
+  @@index([clientId, createdAt])
+  @@map("whatsapp_messages")
+}
+
+model AIConversation {
+  id            String   @id @default(uuid()) @db.Uuid
+  tenantId      String   @map("tenant_id") @db.Uuid
+  clientId      String   @map("client_id") @db.Uuid
+  context       Json
+  lastMessageAt DateTime @map("last_message_at")
+  tenant        Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client        Client   @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now()) @map("created_at")
+  updatedAt     DateTime @updatedAt @map("updated_at")
+
+  @@unique([tenantId, clientId])
+  @@index([tenantId, lastMessageAt])
+  @@map("ai_conversations")
 }
 
 model LoyaltyProgram {

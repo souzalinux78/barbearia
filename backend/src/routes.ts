@@ -13,6 +13,8 @@ import { billingProtectedRoutes, billingPublicRoutes } from "./modules/billing/b
 import { notificationsRoutes } from "./modules/notifications/notifications.routes";
 import { crmRoutes } from "./modules/crm/crm.routes";
 import { franchiseRoutes } from "./modules/franchise/franchise.routes";
+import { whatsappProtectedRoutes, whatsappPublicRoutes } from "./modules/whatsapp/whatsapp.routes";
+import { automationRoutes } from "./modules/automation/automation.routes";
 import { authMiddleware } from "./middlewares/auth.middleware";
 import { tenantMiddleware } from "./middlewares/tenant.middleware";
 import { hierarchyMiddleware } from "./middlewares/hierarchy.middleware";
@@ -26,6 +28,7 @@ apiRouter.get("/health", (_req, res) => {
 
 apiRouter.use("/auth", authRoutes);
 apiRouter.use("/billing", billingPublicRoutes);
+apiRouter.use("/whatsapp", whatsappPublicRoutes);
 apiRouter.use(authMiddleware);
 apiRouter.use(tenantMiddleware);
 apiRouter.use(hierarchyMiddleware);
@@ -43,3 +46,5 @@ apiRouter.use("/dashboard", dashboardRoutes);
 apiRouter.use("/notifications", notificationsRoutes);
 apiRouter.use("/crm", crmRoutes);
 apiRouter.use("/franchise", franchiseRoutes);
+apiRouter.use("/whatsapp", whatsappProtectedRoutes);
+apiRouter.use("/automation", automationRoutes);

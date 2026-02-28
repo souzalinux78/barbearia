@@ -4,6 +4,11 @@ import {
   notifyAppointmentCanceled,
   notifyNewAppointment
 } from "../notifications/notifications.service";
+import {
+  queueAppointmentCancellationAutomation,
+  queueAppointmentConfirmationAutomation,
+  queueAppointmentUpsellAutomation
+} from "../automation/automation.engine";
 import { HttpError } from "../../utils/http-error";
 import {
   appointmentsRepository,
@@ -244,6 +249,9 @@ export const createAppointment = async (tenantId: string, payload: CreateAppoint
       timeLabel: toTimeString(created.startTime)
     })
   );
+  if (created.status === AppointmentStatus.AGENDADO || created.status === AppointmentStatus.CONFIRMADO) {
+    fireNotification(queueAppointmentConfirmationAutomation(tenantId, created.id));
+  }
 
   return toAppointmentDTO(repository, tenantId, created);
 };
@@ -442,6 +450,11 @@ export const updateAppointment = async (
         timeLabel: toTimeString(updated.startTime)
       })
     );
+    fireNotification(queueAppointmentCancellationAutomation(tenantId, updated.id));
+  }
+
+  if (current.status !== AppointmentStatus.FINALIZADO && updated.status === AppointmentStatus.FINALIZADO) {
+    fireNotification(queueAppointmentUpsellAutomation(tenantId, updated.id));
   }
 
   return toAppointmentDTO(appointmentsRepository, tenantId, updated);
@@ -470,6 +483,7 @@ export const deleteAppointment = async (
       timeLabel: toTimeString(cancelled.startTime)
     })
   );
+  fireNotification(queueAppointmentCancellationAutomation(tenantId, cancelled.id));
 
   return toAppointmentDTO(appointmentsRepository, tenantId, cancelled);
 };
@@ -509,6 +523,11 @@ export const updateAppointmentStatus = async (
         timeLabel: toTimeString(updated.startTime)
       })
     );
+    fireNotification(queueAppointmentCancellationAutomation(tenantId, updated.id));
+  }
+
+  if (current.status !== AppointmentStatus.FINALIZADO && payload.status === AppointmentStatus.FINALIZADO) {
+    fireNotification(queueAppointmentUpsellAutomation(tenantId, updated.id));
   }
 
   return toAppointmentDTO(appointmentsRepository, tenantId, updated);

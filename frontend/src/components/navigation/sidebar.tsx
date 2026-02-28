@@ -8,10 +8,10 @@ export const Sidebar = () => {
   const clearSession = useAuthStore((state) => state.clearSession);
 
   return (
-    <aside className="hidden w-64 shrink-0 border-r border-white/10 bg-charcoal/90 px-4 py-6 md:flex md:flex-col">
+    <aside className="hidden h-screen w-64 shrink-0 border-r border-white/10 bg-charcoal/90 px-4 py-6 md:flex md:flex-col">
       <img src={logo} alt="Barbearia Premium" className="mb-8 h-9 w-auto" />
 
-      <nav className="space-y-1">
+      <nav className="flex-1 space-y-1 overflow-y-auto pr-1">
         {sidebarNavItems.map((item) => (
           <NavLink
             key={item.to}
@@ -27,7 +27,7 @@ export const Sidebar = () => {
         ))}
       </nav>
 
-      <div className="mt-auto space-y-3 rounded-xl bg-graphite/80 p-3">
+      <div className="mt-4 space-y-3 rounded-xl bg-graphite/80 p-3">
         <p className="text-sm font-semibold text-slate-100">{user?.name}</p>
         <p className="text-xs uppercase tracking-wide text-slate-400">{user?.role}</p>
         <button

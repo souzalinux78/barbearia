@@ -68,6 +68,18 @@ const FranchiseUnitDetailsPage = lazy(() =>
 const FranchiseRoyaltiesPage = lazy(() =>
   import("../pages/franchise/Royalties").then((module) => ({ default: module.FranchiseRoyaltiesPage }))
 );
+const AutomationRulesPage = lazy(() =>
+  import("../pages/automation/Rules").then((module) => ({ default: module.AutomationRulesPage }))
+);
+const WhatsAppConfigPage = lazy(() =>
+  import("../pages/automation/WhatsAppConfig").then((module) => ({ default: module.WhatsAppConfigPage }))
+);
+const AutomationMessagesPage = lazy(() =>
+  import("../pages/automation/Messages").then((module) => ({ default: module.AutomationMessagesPage }))
+);
+const AutomationMetricsPage = lazy(() =>
+  import("../pages/automation/Metrics").then((module) => ({ default: module.AutomationMetricsPage }))
+);
 
 export const AppRouter = () => (
   <BrowserRouter>
@@ -91,6 +103,10 @@ export const AppRouter = () => (
             <Route path="/franchise/units" element={<FranchiseUnitsPage />} />
             <Route path="/franchise/units/:id" element={<FranchiseUnitDetailsPage />} />
             <Route path="/franchise/royalties" element={<FranchiseRoyaltiesPage />} />
+            <Route path="/automation/rules" element={<AutomationRulesPage />} />
+            <Route path="/automation/whatsapp" element={<WhatsAppConfigPage />} />
+            <Route path="/automation/messages" element={<AutomationMessagesPage />} />
+            <Route path="/automation/metrics" element={<AutomationMetricsPage />} />
             <Route path="/finance" element={<DashboardFinancial />} />
             <Route path="/finance/cashflow" element={<CashFlow />} />
             <Route path="/finance/expenses" element={<Expenses />} />

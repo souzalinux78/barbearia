@@ -8,6 +8,7 @@ import {
   verifyRefreshToken
 } from "../../utils/jwt";
 import { ensureTenantBillingBootstrap } from "../billing/billing.service";
+import { ensureAutomationBootstrap } from "../automation/automation.engine";
 import { loginSchema, refreshSchema, registerTenantSchema } from "./auth.schemas";
 
 type RegisterTenantInput = ReturnType<typeof registerTenantSchema.parse>;
@@ -98,6 +99,7 @@ export const registerTenant = async (input: RegisterTenantInput) => {
   });
 
   await ensureTenantBillingBootstrap(result.tenant.id);
+  await ensureAutomationBootstrap(result.tenant.id);
 
   const payload = authPayloadFromUser(result.owner);
   const accessToken = generateAccessToken(payload);
