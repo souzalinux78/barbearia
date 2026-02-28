@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { Card } from "../../components/ui/card";
 import { Skeleton } from "../../components/ui/skeleton";
 import { getAutomationMessages } from "../../services/automation.service";
+import { AutomationNav } from "./AutomationNav";
 
 export const AutomationMessagesPage = () => {
   const [page, setPage] = useState(1);
@@ -39,6 +40,7 @@ export const AutomationMessagesPage = () => {
         <h1 className="text-2xl font-bold text-slate-100">Mensagens WhatsApp</h1>
         <p className="text-sm text-slate-400">Historico de conversas, automacoes e respostas recebidas.</p>
       </header>
+      <AutomationNav />
 
       <Card>
         <div className="flex items-center gap-2">

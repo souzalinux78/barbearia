@@ -116,6 +116,28 @@ enum InventoryMovementType {
   ADJUSTMENT
 }
 
+enum GoalType {
+  REVENUE
+  APPOINTMENTS
+  SERVICES
+  TICKET_AVG
+  UPSELL
+}
+
+enum GoalPeriod {
+  DAILY
+  WEEKLY
+  MONTHLY
+}
+
+enum BadgeRuleType {
+  META_MASTER
+  UPSELL_KING
+  APPOINTMENTS_100
+  TICKET_HIGH
+  MONTH_CHAMPION
+}
+
 model Tenant {
   id                  String              @id @default(uuid()) @db.Uuid
   name                String
@@ -148,6 +170,10 @@ model Tenant {
   automationRules     AutomationRule[]
   whatsAppMessages    WhatsAppMessage[]
   aiConversations     AIConversation[]
+  goals               Goal[]
+  gamificationPoints  GamificationPoint[]
+  badges              Badge[]
+  challenges          Challenge[]
   createdAt           DateTime            @default(now()) @map("created_at")
   updatedAt           DateTime            @updatedAt @map("updated_at")
 
@@ -186,6 +212,9 @@ model User {
   inventoryLogs    InventoryMovement[]
   pushSubscriptions PushSubscription[]
   ownedFranchises  Franchise[]          @relation("FranchiseOwner")
+  goals            Goal[]
+  gamificationPoints GamificationPoint[]
+  userBadges       UserBadge[]
   createdAt        DateTime            @default(now()) @map("created_at")
   updatedAt        DateTime            @updatedAt @map("updated_at")
 
@@ -225,6 +254,7 @@ model Unit {
   franchise  Franchise? @relation(fields: [franchiseId], references: [id], onDelete: SetNull)
   tenant     Tenant?
   royalties  Royalty[]
+  goals      Goal[]
   createdAt  DateTime   @default(now()) @map("created_at")
   updatedAt  DateTime   @updatedAt @map("updated_at")
 
@@ -451,6 +481,108 @@ model LoyaltyTransaction {
   @@index([tenantId, type, createdAt])
   @@index([appointmentId])
   @@map("loyalty_transactions")
+}
+
+model Goal {
+  id           String       @id @default(uuid()) @db.Uuid
+  tenantId     String       @map("tenant_id") @db.Uuid
+  unitId       String?      @map("unit_id") @db.Uuid
+  userId       String?      @map("user_id") @db.Uuid
+  type         GoalType
+  targetValue  Decimal      @map("target_value") @db.Decimal(12, 2)
+  period       GoalPeriod
+  startDate    DateTime     @map("start_date") @db.Date
+  endDate      DateTime     @map("end_date") @db.Date
+  tenant       Tenant       @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  unit         Unit?        @relation(fields: [unitId], references: [id], onDelete: SetNull)
+  user         User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  progress     GoalProgress?
+  createdAt    DateTime     @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([tenantId, userId])
+  @@index([tenantId, unitId])
+  @@index([tenantId, startDate, endDate])
+  @@map("goals")
+}
+
+model GoalProgress {
+  id           String   @id @default(uuid()) @db.Uuid
+  goalId       String   @unique @map("goal_id") @db.Uuid
+  currentValue Decimal  @default(0) @map("current_value") @db.Decimal(12, 2)
+  percentage   Decimal  @default(0) @db.Decimal(7, 2)
+  goal         Goal     @relation(fields: [goalId], references: [id], onDelete: Cascade)
+  updatedAt    DateTime @updatedAt @map("updated_at")
+
+  @@index([updatedAt])
+  @@map("goal_progress")
+}
+
+model GamificationPoint {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  userId      String   @map("user_id") @db.Uuid
+  points      Int
+  reason      String
+  referenceId String?  @map("reference_id")
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([tenantId, userId, createdAt])
+  @@index([referenceId])
+  @@map("gamification_points")
+}
+
+model Badge {
+  id          String        @id @default(uuid()) @db.Uuid
+  tenantId    String        @map("tenant_id") @db.Uuid
+  name        String
+  description String
+  icon        String
+  ruleType    BadgeRuleType @map("rule_type")
+  ruleValue   Decimal       @map("rule_value") @db.Decimal(12, 2)
+  tenant      Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  userBadges  UserBadge[]
+  createdAt   DateTime      @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([tenantId, ruleType])
+  @@map("badges")
+}
+
+model UserBadge {
+  id         String   @id @default(uuid()) @db.Uuid
+  userId     String   @map("user_id") @db.Uuid
+  badgeId    String   @map("badge_id") @db.Uuid
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  badge      Badge    @relation(fields: [badgeId], references: [id], onDelete: Cascade)
+  achievedAt DateTime @default(now()) @map("achieved_at")
+
+  @@unique([userId, badgeId])
+  @@index([badgeId])
+  @@index([achievedAt])
+  @@map("user_badges")
+}
+
+model Challenge {
+  id          String   @id @default(uuid()) @db.Uuid
+  tenantId    String   @map("tenant_id") @db.Uuid
+  name        String
+  description String
+  targetType  GoalType @map("target_type")
+  targetValue Decimal  @map("target_value") @db.Decimal(12, 2)
+  rewardPoints Int     @map("reward_points")
+  startDate   DateTime @map("start_date") @db.Date
+  endDate     DateTime @map("end_date") @db.Date
+  active      Boolean  @default(true)
+  tenant      Tenant   @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt   DateTime @default(now()) @map("created_at")
+
+  @@index([tenantId])
+  @@index([tenantId, active, startDate, endDate])
+  @@map("challenges")
 }
 
 model AppointmentService {

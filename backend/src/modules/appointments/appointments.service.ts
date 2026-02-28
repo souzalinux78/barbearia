@@ -9,6 +9,7 @@ import {
   queueAppointmentConfirmationAutomation,
   queueAppointmentUpsellAutomation
 } from "../automation/automation.engine";
+import { processGamificationForAppointmentFinalized } from "../gamification/gamification.service";
 import { HttpError } from "../../utils/http-error";
 import {
   appointmentsRepository,
@@ -455,6 +456,13 @@ export const updateAppointment = async (
 
   if (current.status !== AppointmentStatus.FINALIZADO && updated.status === AppointmentStatus.FINALIZADO) {
     fireNotification(queueAppointmentUpsellAutomation(tenantId, updated.id));
+    fireNotification(
+      processGamificationForAppointmentFinalized({
+        tenantId,
+        appointmentId: updated.id,
+        barberId: updated.barberId
+      })
+    );
   }
 
   return toAppointmentDTO(appointmentsRepository, tenantId, updated);
@@ -528,6 +536,13 @@ export const updateAppointmentStatus = async (
 
   if (current.status !== AppointmentStatus.FINALIZADO && payload.status === AppointmentStatus.FINALIZADO) {
     fireNotification(queueAppointmentUpsellAutomation(tenantId, updated.id));
+    fireNotification(
+      processGamificationForAppointmentFinalized({
+        tenantId,
+        appointmentId: updated.id,
+        barberId: updated.barberId
+      })
+    );
   }
 
   return toAppointmentDTO(appointmentsRepository, tenantId, updated);

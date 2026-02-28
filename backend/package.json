@@ -15,6 +15,7 @@
     "test:financial": "tsx --test src/modules/financial/__tests__/financial.calculations.test.ts",
     "test:notifications": "tsx --test src/modules/notifications/__tests__/notifications.schemas.test.ts",
     "test:automation": "tsx --test src/modules/automation/__tests__/automation.calculations.test.ts",
+    "test:gamification": "tsx --test src/modules/gamification/__tests__/gamification.calculations.test.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy"

@@ -7,6 +7,7 @@ import {
 } from "../notifications/notifications.service";
 import { queuePaymentConfirmedAutomation } from "../automation/automation.engine";
 import { applyManualPaymentClientSpend } from "../crm/crm.loyalty";
+import { processGamificationForPaymentConfirmed } from "../gamification/gamification.service";
 import {
   calculateCommissionAmount,
   calculateDre
@@ -143,6 +144,12 @@ export const createManualPayment = async (tenantId: string, payload: ManualPayme
     fireNotification(notifyPaymentConfirmed(tenantId, Number(payment.amount)));
     fireNotification(
       queuePaymentConfirmedAutomation(tenantId, payload.clientId, Number(payment.amount))
+    );
+    fireNotification(
+      processGamificationForPaymentConfirmed({
+        tenantId,
+        paymentId: payment.id
+      })
     );
   }
 

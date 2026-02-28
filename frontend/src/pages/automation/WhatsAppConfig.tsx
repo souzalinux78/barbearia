@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { AxiosError } from "axios";
 import { Card } from "../../components/ui/card";
 import { Skeleton } from "../../components/ui/skeleton";
 import {
@@ -8,6 +9,21 @@ import {
   sendWhatsAppTest,
   WhatsAppProvider
 } from "../../services/automation.service";
+import { AutomationNav } from "./AutomationNav";
+
+const resolveWebhookUrl = () => {
+  const apiBase = import.meta.env.VITE_API_URL ?? "http://localhost:4000/api/v1";
+  const normalized = apiBase.endsWith("/") ? apiBase.slice(0, -1) : apiBase;
+  return `${normalized}/whatsapp/webhook`;
+};
+
+const toApiErrorMessage = (error: unknown) => {
+  const axiosError = error as AxiosError<{ message?: string }>;
+  if (axiosError?.response?.data?.message) {
+    return axiosError.response.data.message;
+  }
+  return "Falha ao processar requisicao.";
+};
 
 export const WhatsAppConfigPage = () => {
   const queryClient = useQueryClient();
@@ -24,6 +40,7 @@ export const WhatsAppConfigPage = () => {
     phoneNumber: "",
     message: "Teste de conexao WhatsApp - Barbearia Premium"
   });
+  const webhookUrl = resolveWebhookUrl();
 
   const statusQuery = useQuery({
     queryKey: ["whatsapp-status"],
@@ -48,6 +65,9 @@ export const WhatsAppConfigPage = () => {
     onSuccess: () => {
       setFeedback("Configuracao WhatsApp salva.");
       queryClient.invalidateQueries({ queryKey: ["whatsapp-status"] });
+    },
+    onError: (error) => {
+      setFeedback(toApiErrorMessage(error));
     }
   });
 
@@ -56,8 +76,20 @@ export const WhatsAppConfigPage = () => {
     onSuccess: () => {
       setFeedback("Mensagem de teste enviada.");
       queryClient.invalidateQueries({ queryKey: ["whatsapp-status"] });
+    },
+    onError: (error) => {
+      setFeedback(toApiErrorMessage(error));
     }
   });
+
+  const copyWebhookUrl = async () => {
+    try {
+      await navigator.clipboard.writeText(webhookUrl);
+      setFeedback("URL do webhook copiada.");
+    } catch {
+      setFeedback("Nao foi possivel copiar automaticamente.");
+    }
+  };
 
   if (statusQuery.isLoading) {
     return (
@@ -74,6 +106,35 @@ export const WhatsAppConfigPage = () => {
         <h1 className="text-2xl font-bold text-slate-100">WhatsApp API</h1>
         <p className="text-sm text-slate-400">Conecte provider oficial ou Evolution API por tenant.</p>
       </header>
+      <AutomationNav />
+
+      <Card title="Webhook de Entrada">
+        <div className="space-y-3">
+          <div>
+            <p className="text-xs uppercase tracking-wide text-slate-400">URL do webhook</p>
+            <div className="mt-1 flex flex-col gap-2 sm:flex-row">
+              <input
+                readOnly
+                value={webhookUrl}
+                className="w-full rounded-xl border border-white/10 bg-charcoal/70 px-3 py-2 text-sm text-slate-100"
+              />
+              <button
+                onClick={copyWebhookUrl}
+                type="button"
+                className="rounded-xl border border-gold/60 px-3 py-2 text-sm font-semibold text-gold"
+              >
+                Copiar
+              </button>
+            </div>
+          </div>
+          <p className="text-xs text-slate-300">
+            Header obrigatorio: <code>x-whatsapp-signature</code> (HMAC SHA256 do body bruto).
+          </p>
+          <p className="text-xs text-slate-400">
+            Segredo da assinatura: o mesmo valor de <strong>API Key</strong> salvo abaixo.
+          </p>
+        </div>
+      </Card>
 
       <Card>
         <div className="flex flex-wrap items-center gap-3">
@@ -131,7 +192,7 @@ export const WhatsAppConfigPage = () => {
           <input
             value={form.apiUrl}
             onChange={(event) => setForm((current) => ({ ...current, apiUrl: event.target.value }))}
-            placeholder="API URL"
+            placeholder="Ex: https://host/api/message/sendText/souza"
             className="w-full rounded-xl border border-white/10 bg-charcoal/70 px-3 py-2 text-sm text-slate-100"
           />
           <input

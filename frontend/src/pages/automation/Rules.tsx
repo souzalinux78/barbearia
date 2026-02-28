@@ -8,6 +8,7 @@ import {
   getAutomationRules,
   updateAutomationRule
 } from "../../services/automation.service";
+import { AutomationNav } from "./AutomationNav";
 
 const typeLabel: Record<AutomationRuleType, string> = {
   CONFIRMATION: "Confirmacao",
@@ -70,6 +71,7 @@ export const AutomationRulesPage = () => {
           Configure ativacao, delay e template. Variaveis: {"{{client_name}}"}, {"{{date}}"}, {"{{time}}"}, {"{{barber_name}}"}.
         </p>
       </header>
+      <AutomationNav />
 
       <div className="space-y-3">
         {orderedTypes.map((type) => {

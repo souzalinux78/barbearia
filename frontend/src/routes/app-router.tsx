@@ -80,6 +80,25 @@ const AutomationMessagesPage = lazy(() =>
 const AutomationMetricsPage = lazy(() =>
   import("../pages/automation/Metrics").then((module) => ({ default: module.AutomationMetricsPage }))
 );
+const DashboardPerformancePage = lazy(() =>
+  import("../pages/performance/DashboardPerformance").then((module) => ({
+    default: module.DashboardPerformancePage
+  }))
+);
+const RankingPerformancePage = lazy(() =>
+  import("../pages/performance/Ranking").then((module) => ({ default: module.RankingPerformancePage }))
+);
+const GoalsPerformancePage = lazy(() =>
+  import("../pages/performance/Goals").then((module) => ({ default: module.GoalsPerformancePage }))
+);
+const BadgesPerformancePage = lazy(() =>
+  import("../pages/performance/Badges").then((module) => ({ default: module.BadgesPerformancePage }))
+);
+const ChallengesPerformancePage = lazy(() =>
+  import("../pages/performance/Challenges").then((module) => ({
+    default: module.ChallengesPerformancePage
+  }))
+);
 
 export const AppRouter = () => (
   <BrowserRouter>
@@ -107,6 +126,11 @@ export const AppRouter = () => (
             <Route path="/automation/whatsapp" element={<WhatsAppConfigPage />} />
             <Route path="/automation/messages" element={<AutomationMessagesPage />} />
             <Route path="/automation/metrics" element={<AutomationMetricsPage />} />
+            <Route path="/performance" element={<DashboardPerformancePage />} />
+            <Route path="/performance/ranking" element={<RankingPerformancePage />} />
+            <Route path="/performance/goals" element={<GoalsPerformancePage />} />
+            <Route path="/performance/badges" element={<BadgesPerformancePage />} />
+            <Route path="/performance/challenges" element={<ChallengesPerformancePage />} />
             <Route path="/finance" element={<DashboardFinancial />} />
             <Route path="/finance/cashflow" element={<CashFlow />} />
             <Route path="/finance/expenses" element={<Expenses />} />

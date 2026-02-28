@@ -64,12 +64,17 @@ const mapDeliveryStatus = (status?: string): WhatsAppMessageStatus => {
   }
 };
 
-const toApiUrl = (baseUrl: string, provider: WhatsAppProvider) => {
+const toApiUrls = (baseUrl: string, provider: WhatsAppProvider) => {
   const trimmed = baseUrl.endsWith("/") ? baseUrl.slice(0, -1) : baseUrl;
+
   if (provider === WhatsAppProvider.EVOLUTION) {
-    return `${trimmed}/message/sendText`;
+    if (trimmed.includes("/message/sendText") || trimmed.includes("/chat/sendMessage")) {
+      return [trimmed];
+    }
+    return [`${trimmed}/message/sendText`, `${trimmed}/chat/sendMessage`];
   }
-  return `${trimmed}/messages`;
+
+  return [`${trimmed}/messages`];
 };
 
 const dispatchToProvider = async (input: {
@@ -81,36 +86,73 @@ const dispatchToProvider = async (input: {
   message: string;
   metadata?: Prisma.InputJsonValue;
 }) => {
-  const endpoint = toApiUrl(input.apiUrl, input.provider);
-  const body =
-    input.provider === WhatsAppProvider.EVOLUTION
-      ? {
-          number: input.to,
-          text: input.message,
-          metadata: input.metadata
-        }
-      : {
-          from: input.from,
-          to: input.to,
-          message: input.message,
-          metadata: input.metadata
-        };
+  const endpoints = toApiUrls(input.apiUrl, input.provider);
+  const errors: string[] = [];
 
-  const response = await fetch(endpoint, {
-    method: "POST",
-    headers: {
-      Authorization: `Bearer ${input.apiKey}`,
-      "Content-Type": "application/json"
-    },
-    body: JSON.stringify(body)
-  });
+  for (const endpoint of endpoints) {
+    const body =
+      input.provider === WhatsAppProvider.EVOLUTION
+        ? endpoint.includes("/chat/sendMessage")
+          ? {
+              number: input.to,
+              textMessage: {
+                text: input.message
+              },
+              metadata: input.metadata
+            }
+          : {
+              number: input.to,
+              text: input.message,
+              metadata: input.metadata
+            }
+        : {
+            from: input.from,
+            to: input.to,
+            message: input.message,
+            metadata: input.metadata
+          };
 
-  if (!response.ok) {
-    const message = await response.text().catch(() => "Falha no envio WhatsApp.");
-    throw new Error(message || "Falha no envio WhatsApp.");
+    try {
+      const response = await fetch(endpoint, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${input.apiKey}`,
+          apikey: input.apiKey,
+          "Content-Type": "application/json"
+        },
+        body: JSON.stringify(body)
+      });
+
+      if (!response.ok) {
+        const responseBody = await response.text().catch(() => "");
+        errors.push(`Endpoint ${endpoint} retornou ${response.status}: ${responseBody.slice(0, 280)}`);
+        continue;
+      }
+
+      return response.json().catch(() => null);
+    } catch (error) {
+      errors.push(
+        `Endpoint ${endpoint} falhou: ${error instanceof Error ? error.message : "erro desconhecido"}`
+      );
+    }
   }
 
-  return response.json().catch(() => null);
+  throw new Error(
+    (() => {
+      const combined = errors.join(" | ");
+      const missingRoute =
+        combined.includes("Cannot POST /message/sendText") ||
+        combined.includes("Cannot POST /chat/sendMessage");
+
+      if (missingRoute) {
+        return `${combined} | Dica: para Evolution API informe API URL com instancia, por exemplo: https://host/api/message/sendText/souza ou https://host/message/sendText/souza`;
+      }
+
+      return errors.length
+        ? combined
+        : "Falha no envio WhatsApp. Verifique URL, API key e provider.";
+    })()
+  );
 };
 
 const enqueueJob = (messageId: string, delayMinutes: number) => {
@@ -569,14 +611,25 @@ export const sendWhatsAppTest = async (tenantId: string, payload: TestWhatsAppIn
     throw new HttpError("Informe clientId ou phoneNumber para teste.", 422);
   }
 
-  const response = await dispatchToProvider({
-    provider: config.provider,
-    apiUrl: config.apiUrl,
-    apiKey: config.apiKey,
-    from: normalizePhone(config.phoneNumber),
-    to: normalizePhone(payload.phoneNumber),
-    message: payload.message
-  });
+  const normalizedPhone = normalizePhone(payload.phoneNumber);
+  if (!normalizedPhone || normalizedPhone.length < 10) {
+    throw new HttpError("Telefone de teste invalido. Informe DDI+DDD+numero.", 422);
+  }
+
+  let response: unknown = null;
+  try {
+    response = await dispatchToProvider({
+      provider: config.provider,
+      apiUrl: config.apiUrl,
+      apiKey: config.apiKey,
+      from: normalizePhone(config.phoneNumber),
+      to: normalizedPhone,
+      message: payload.message
+    });
+  } catch (error) {
+    const detail = error instanceof Error ? error.message : "falha desconhecida";
+    throw new HttpError(`Falha ao testar envio no provider: ${detail}`, 502);
+  }
 
   return {
     queued: false,

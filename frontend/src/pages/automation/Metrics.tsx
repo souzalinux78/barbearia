@@ -12,6 +12,7 @@ import {
 import { Card } from "../../components/ui/card";
 import { Skeleton } from "../../components/ui/skeleton";
 import { getAutomationMetrics } from "../../services/automation.service";
+import { AutomationNav } from "./AutomationNav";
 
 export const AutomationMetricsPage = () => {
   const [days, setDays] = useState(30);
@@ -52,6 +53,7 @@ export const AutomationMetricsPage = () => {
           <option value={90}>Ultimos 90 dias</option>
         </select>
       </header>
+      <AutomationNav />
 
       <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
         <Card>
