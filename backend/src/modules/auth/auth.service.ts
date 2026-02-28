@@ -14,7 +14,15 @@ type RegisterTenantInput = ReturnType<typeof registerTenantSchema.parse>;
 type LoginInput = ReturnType<typeof loginSchema.parse>;
 type RefreshInput = ReturnType<typeof refreshSchema.parse>;
 
-const defaultRoles: RoleName[] = ["OWNER", "ADMIN", "BARBER", "RECEPTION"];
+const defaultRoles: RoleName[] = [
+  "UNIT_OWNER",
+  "UNIT_ADMIN",
+  "BARBER",
+  "RECEPTION",
+  "FRANCHISE_OWNER",
+  "OWNER",
+  "ADMIN"
+];
 
 const authPayloadFromUser = (user: { id: string; tenantId: string; role: { name: RoleName } }) => ({
   userId: user.id,
@@ -33,12 +41,24 @@ export const registerTenant = async (input: RegisterTenantInput) => {
   const passwordHash = await hashPassword(input.ownerPassword);
 
   const result = await prisma.$transaction(async (tx) => {
+    const unit = await tx.unit.create({
+      data: {
+        name: input.tenantName,
+        cnpj: input.tenantCnpj,
+        address: input.tenantAddress,
+        city: input.tenantCity,
+        state: input.tenantState,
+        active: true
+      }
+    });
+
     const tenant = await tx.tenant.create({
       data: {
         name: input.tenantName,
         slug: input.tenantSlug,
         email: input.tenantEmail,
-        phone: input.tenantPhone
+        phone: input.tenantPhone,
+        unitId: unit.id
       }
     });
 
@@ -53,13 +73,13 @@ export const registerTenant = async (input: RegisterTenantInput) => {
       where: {
         tenantId_name: {
           tenantId: tenant.id,
-          name: "OWNER"
+          name: "UNIT_OWNER"
         }
       }
     });
 
     if (!ownerRole) {
-      throw new HttpError("Nao foi possivel criar perfil OWNER.", 500);
+      throw new HttpError("Nao foi possivel criar perfil UNIT_OWNER.", 500);
     }
 
     const owner = await tx.user.create({

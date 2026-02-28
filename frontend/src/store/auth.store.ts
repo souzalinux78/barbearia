@@ -5,7 +5,15 @@ export type SessionUser = {
   id: string;
   name: string;
   email: string;
-  role: "OWNER" | "ADMIN" | "BARBER" | "RECEPTION";
+  role:
+    | "SUPER_ADMIN"
+    | "FRANCHISE_OWNER"
+    | "UNIT_OWNER"
+    | "UNIT_ADMIN"
+    | "OWNER"
+    | "ADMIN"
+    | "BARBER"
+    | "RECEPTION";
 };
 
 export type SessionTenant = {

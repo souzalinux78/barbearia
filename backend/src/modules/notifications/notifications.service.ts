@@ -318,6 +318,11 @@ export const stopNotificationSchedulers = () => {
 };
 
 export const canSendManagementNotification = (role: RoleName): boolean =>
-  role === RoleName.OWNER || role === RoleName.ADMIN;
+  role === RoleName.OWNER ||
+  role === RoleName.ADMIN ||
+  role === RoleName.UNIT_OWNER ||
+  role === RoleName.UNIT_ADMIN ||
+  role === RoleName.FRANCHISE_OWNER ||
+  role === RoleName.SUPER_ADMIN;
 
 export const getVapidPublicKey = () => env.VAPID_PUBLIC_KEY;

@@ -38,7 +38,7 @@ export const listUsers = async (tenantId: string, query: ListUsersInput) =>
   });
 
 export const createUser = async (tenantId: string, payload: CreateUserInput) => {
-  const role = await prisma.role.findUnique({
+  let role = await prisma.role.findUnique({
     where: {
       tenantId_name: {
         tenantId,
@@ -47,7 +47,12 @@ export const createUser = async (tenantId: string, payload: CreateUserInput) => 
     }
   });
   if (!role) {
-    throw new HttpError("Role nao encontrada para o tenant.", 404);
+    role = await prisma.role.create({
+      data: {
+        tenantId,
+        name: payload.role as RoleName
+      }
+    });
   }
 
   const existing = await prisma.user.findUnique({

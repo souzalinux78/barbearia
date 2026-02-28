@@ -10,6 +10,7 @@ export const sidebarNavItems: NavItem[] = [
   { to: "/finance", label: "Financeiro", shortLabel: "Financeiro" },
   { to: "/clients", label: "Clientes", shortLabel: "Clientes" },
   { to: "/crm/loyalty", label: "CRM", shortLabel: "CRM" },
+  { to: "/franchise", label: "Franquia", shortLabel: "Franquia" },
   { to: "/billing/subscription", label: "Assinatura", shortLabel: "Plano" },
   { to: "/settings", label: "Perfil", shortLabel: "Perfil" }
 ];

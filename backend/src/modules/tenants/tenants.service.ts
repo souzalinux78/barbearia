@@ -5,6 +5,11 @@ export const getCurrentTenant = async (tenantId: string) => {
   const tenant = await prisma.tenant.findUnique({
     where: { id: tenantId },
     include: {
+      unit: {
+        include: {
+          franchise: true
+        }
+      },
       subscription: {
         include: {
           plan: true,

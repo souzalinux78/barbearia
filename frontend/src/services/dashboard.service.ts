@@ -11,7 +11,15 @@ export type DashboardPeriod = {
 export type DashboardSummary = {
   period: { start: string; end: string };
   permissions: {
-    role: "OWNER" | "ADMIN" | "BARBER" | "RECEPTION";
+    role:
+      | "SUPER_ADMIN"
+      | "FRANCHISE_OWNER"
+      | "UNIT_OWNER"
+      | "UNIT_ADMIN"
+      | "OWNER"
+      | "ADMIN"
+      | "BARBER"
+      | "RECEPTION";
     fullAccess: boolean;
     scopedToSelf: boolean;
     limitedView: boolean;

@@ -203,7 +203,7 @@ export const DashboardExecutive = () => {
         </section>
       ) : (
         <Card className="p-5 text-sm text-slate-300">
-          Perfil com visao limitada: receita e margens disponiveis apenas para OWNER/ADMIN/BARBER.
+          Perfil com visao limitada: receita e margens disponiveis apenas para papeis de gestao e BARBER.
         </Card>
       )}
 

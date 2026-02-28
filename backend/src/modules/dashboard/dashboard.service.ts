@@ -1031,7 +1031,13 @@ export const getDashboardSummary = async (
       },
       permissions: {
         role: actor.role,
-        fullAccess: actor.role === RoleName.OWNER || actor.role === RoleName.ADMIN,
+        fullAccess:
+          actor.role === RoleName.OWNER ||
+          actor.role === RoleName.ADMIN ||
+          actor.role === RoleName.UNIT_OWNER ||
+          actor.role === RoleName.UNIT_ADMIN ||
+          actor.role === RoleName.FRANCHISE_OWNER ||
+          actor.role === RoleName.SUPER_ADMIN,
         scopedToSelf: actor.role === RoleName.BARBER,
         limitedView: isReception
       },

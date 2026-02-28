@@ -11,6 +11,7 @@
     "test:billing": "tsx --test src/modules/billing/__tests__/billing.logic.test.ts",
     "test:crm": "tsx --test src/modules/crm/__tests__/crm.calculations.test.ts",
     "test:dashboard": "tsx --test src/modules/dashboard/__tests__/dashboard.calculations.test.ts",
+    "test:franchise": "tsx --test src/modules/franchise/__tests__/franchise.calculations.test.ts",
     "test:financial": "tsx --test src/modules/financial/__tests__/financial.calculations.test.ts",
     "test:notifications": "tsx --test src/modules/notifications/__tests__/notifications.schemas.test.ts",
     "prisma:generate": "prisma generate",

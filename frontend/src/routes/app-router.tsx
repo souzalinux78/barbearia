@@ -56,6 +56,18 @@ const CrmSegmentsPage = lazy(() =>
 const LoyaltyDashboardPage = lazy(() =>
   import("../pages/crm/LoyaltyDashboard").then((module) => ({ default: module.LoyaltyDashboardPage }))
 );
+const DashboardFranchisePage = lazy(() =>
+  import("../pages/franchise/DashboardFranchise").then((module) => ({ default: module.DashboardFranchisePage }))
+);
+const FranchiseUnitsPage = lazy(() =>
+  import("../pages/franchise/Units").then((module) => ({ default: module.FranchiseUnitsPage }))
+);
+const FranchiseUnitDetailsPage = lazy(() =>
+  import("../pages/franchise/UnitDetails").then((module) => ({ default: module.FranchiseUnitDetailsPage }))
+);
+const FranchiseRoyaltiesPage = lazy(() =>
+  import("../pages/franchise/Royalties").then((module) => ({ default: module.FranchiseRoyaltiesPage }))
+);
 
 export const AppRouter = () => (
   <BrowserRouter>
@@ -75,6 +87,10 @@ export const AppRouter = () => (
             <Route path="/crm/client/:id" element={<CrmClientDetailsPage />} />
             <Route path="/crm/segments" element={<CrmSegmentsPage />} />
             <Route path="/crm/loyalty" element={<LoyaltyDashboardPage />} />
+            <Route path="/franchise" element={<DashboardFranchisePage />} />
+            <Route path="/franchise/units" element={<FranchiseUnitsPage />} />
+            <Route path="/franchise/units/:id" element={<FranchiseUnitDetailsPage />} />
+            <Route path="/franchise/royalties" element={<FranchiseRoyaltiesPage />} />
             <Route path="/finance" element={<DashboardFinancial />} />
             <Route path="/finance/cashflow" element={<CashFlow />} />
             <Route path="/finance/expenses" element={<Expenses />} />

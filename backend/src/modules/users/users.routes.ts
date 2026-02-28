@@ -11,13 +11,13 @@ export const usersRoutes = Router();
 usersRoutes.get("/me", meController);
 usersRoutes.get(
   "/",
-  authorize(RoleName.OWNER, RoleName.ADMIN),
+  authorize(RoleName.OWNER, RoleName.ADMIN, RoleName.UNIT_OWNER, RoleName.UNIT_ADMIN, RoleName.FRANCHISE_OWNER),
   validate(listUsersSchema, "query"),
   listUsersController
 );
 usersRoutes.post(
   "/",
-  authorize(RoleName.OWNER, RoleName.ADMIN),
+  authorize(RoleName.OWNER, RoleName.ADMIN, RoleName.UNIT_OWNER, RoleName.UNIT_ADMIN, RoleName.FRANCHISE_OWNER),
   checkPlanLimits({ enforceUsers: true, enforceBarbersByBodyRole: true }),
   validate(createUserSchema),
   createUserController

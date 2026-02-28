@@ -55,7 +55,14 @@ export const assertCanCancelAppointment = (
   actorUserId: string,
   barberId: string
 ): void => {
-  if (role === RoleName.OWNER || role === RoleName.ADMIN) {
+  if (
+    role === RoleName.OWNER ||
+    role === RoleName.ADMIN ||
+    role === RoleName.UNIT_OWNER ||
+    role === RoleName.UNIT_ADMIN ||
+    role === RoleName.FRANCHISE_OWNER ||
+    role === RoleName.SUPER_ADMIN
+  ) {
     return;
   }
 
