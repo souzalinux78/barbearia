@@ -1,5 +1,5 @@
 import { NavLink } from "react-router-dom";
-import { navItems } from "./nav-items";
+import { sidebarNavItems } from "./nav-items";
 import logo from "../../assets/logo.svg";
 import { useAuthStore } from "../../store/auth.store";
 
@@ -12,7 +12,7 @@ export const Sidebar = () => {
       <img src={logo} alt="Barbearia Premium" className="mb-8 h-9 w-auto" />
 
       <nav className="space-y-1">
-        {navItems.map((item) => (
+        {sidebarNavItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

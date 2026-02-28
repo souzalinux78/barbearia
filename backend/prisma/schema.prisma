@@ -69,6 +69,17 @@ enum BillingPaymentStatus {
   CANCELED
 }
 
+enum LoyaltyProgramType {
+  POINTS
+  CASHBACK
+}
+
+enum LoyaltyTransactionType {
+  EARN
+  REDEEM
+  EXPIRE
+}
+
 enum InventoryMovementType {
   IN
   OUT
@@ -97,6 +108,8 @@ model Tenant {
   gatewayConfig       PaymentGatewayConfig?
   billingLogs         BillingLog[]
   pushSubscriptions   PushSubscription[]
+  loyaltyProgram      LoyaltyProgram?
+  loyaltyTransactions LoyaltyTransaction[]
   createdAt           DateTime            @default(now()) @map("created_at")
   updatedAt           DateTime            @updatedAt @map("updated_at")
 
@@ -165,14 +178,23 @@ model Client {
   birthDate    DateTime?     @map("birth_date")
   notes        String?
   vipBadge     Boolean       @default(false) @map("vip_badge")
+  vip          Boolean       @default(false)
   noShowCount  Int           @default(0) @map("no_show_count")
+  loyaltyPoints Decimal      @default(0) @map("loyalty_points") @db.Decimal(12, 2)
+  cashbackBalance Decimal    @default(0) @map("cashback_balance") @db.Decimal(12, 2)
+  totalSpent   Decimal       @default(0) @map("total_spent") @db.Decimal(12, 2)
+  visitsCount  Int           @default(0) @map("visits_count")
+  lastVisit    DateTime?     @map("last_visit")
   tenant       Tenant        @relation(fields: [tenantId], references: [id], onDelete: Cascade)
   appointments Appointment[]
   payments     Payment[]
+  loyaltyTransactions LoyaltyTransaction[]
   createdAt    DateTime      @default(now()) @map("created_at")
   updatedAt    DateTime      @updatedAt @map("updated_at")
 
   @@index([tenantId])
+  @@index([tenantId, vip])
+  @@index([tenantId, lastVisit])
   @@map("clients")
 }
 
@@ -214,6 +236,7 @@ model Appointment {
   appointmentServices AppointmentService[]
   payments            Payment[]
   commission          Commission[]
+  loyaltyTransactions LoyaltyTransaction[]
   createdAt           DateTime             @default(now()) @map("created_at")
   updatedAt           DateTime             @updatedAt @map("updated_at")
 
@@ -223,6 +246,40 @@ model Appointment {
   @@index([tenantId, date, barberId])
   @@index([tenantId, status, date])
   @@map("appointments")
+}
+
+model LoyaltyProgram {
+  id                 String             @id @default(uuid()) @db.Uuid
+  tenantId           String             @unique @map("tenant_id") @db.Uuid
+  active             Boolean            @default(false)
+  type               LoyaltyProgramType
+  pointsPerReal      Decimal            @default(1) @map("points_per_real") @db.Decimal(10, 2)
+  cashbackPercentage Decimal            @default(0) @map("cashback_percentage") @db.Decimal(5, 2)
+  expirationDays     Int                @default(90) @map("expiration_days")
+  tenant             Tenant             @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt          DateTime           @default(now()) @map("created_at")
+  updatedAt          DateTime           @updatedAt @map("updated_at")
+
+  @@index([active, type])
+  @@map("loyalty_programs")
+}
+
+model LoyaltyTransaction {
+  id            String                 @id @default(uuid()) @db.Uuid
+  tenantId      String                 @map("tenant_id") @db.Uuid
+  clientId      String                 @map("client_id") @db.Uuid
+  appointmentId String?                @map("appointment_id") @db.Uuid
+  type          LoyaltyTransactionType
+  amount        Decimal                @db.Decimal(12, 2)
+  tenant        Tenant                 @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  client        Client                 @relation(fields: [clientId], references: [id], onDelete: Cascade)
+  appointment   Appointment?           @relation(fields: [appointmentId], references: [id], onDelete: SetNull)
+  createdAt     DateTime               @default(now()) @map("created_at")
+
+  @@index([tenantId, clientId, createdAt])
+  @@index([tenantId, type, createdAt])
+  @@index([appointmentId])
+  @@map("loyalty_transactions")
 }
 
 model AppointmentService {

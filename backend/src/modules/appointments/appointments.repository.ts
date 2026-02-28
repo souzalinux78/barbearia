@@ -7,6 +7,7 @@ import {
 } from "@prisma/client";
 import { prisma } from "../../config/prisma";
 import { calculateCommissionAmount } from "../financial/financial.calculations";
+import { applyFinalizationLoyalty } from "../crm/crm.loyalty";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -398,6 +399,7 @@ export class AppointmentsRepository {
       }
     });
 
+    const paidAt = new Date();
     if (!existingPayment) {
       await this.db.payment.create({
         data: {
@@ -407,9 +409,17 @@ export class AppointmentsRepository {
           method: "DINHEIRO",
           status: "PAGO",
           amount: data.amount,
-          paidAt: new Date(),
+          paidAt,
           notes: "Pagamento automatico na finalizacao do agendamento."
         }
+      });
+
+      await applyFinalizationLoyalty(this.db, {
+        tenantId: data.tenantId,
+        clientId: appointment.clientId,
+        appointmentId: data.appointmentId,
+        amountPaid: data.amount,
+        paidAt
       });
     }
 

@@ -44,6 +44,18 @@ const Upgrade = lazy(() =>
 const OfflinePage = lazy(() =>
   import("../pages/Offline").then((module) => ({ default: module.OfflinePage }))
 );
+const CrmClientsPage = lazy(() =>
+  import("../pages/crm/Clients").then((module) => ({ default: module.CrmClientsPage }))
+);
+const CrmClientDetailsPage = lazy(() =>
+  import("../pages/crm/ClientDetails").then((module) => ({ default: module.CrmClientDetailsPage }))
+);
+const CrmSegmentsPage = lazy(() =>
+  import("../pages/crm/Segments").then((module) => ({ default: module.CrmSegmentsPage }))
+);
+const LoyaltyDashboardPage = lazy(() =>
+  import("../pages/crm/LoyaltyDashboard").then((module) => ({ default: module.LoyaltyDashboardPage }))
+);
 
 export const AppRouter = () => (
   <BrowserRouter>
@@ -59,6 +71,10 @@ export const AppRouter = () => (
             <Route path="/appointments/week" element={<WeeklyView />} />
             <Route path="/appointments/new" element={<NewAppointment />} />
             <Route path="/clients" element={<ClientsPage />} />
+            <Route path="/crm/clients" element={<CrmClientsPage />} />
+            <Route path="/crm/client/:id" element={<CrmClientDetailsPage />} />
+            <Route path="/crm/segments" element={<CrmSegmentsPage />} />
+            <Route path="/crm/loyalty" element={<LoyaltyDashboardPage />} />
             <Route path="/finance" element={<DashboardFinancial />} />
             <Route path="/finance/cashflow" element={<CashFlow />} />
             <Route path="/finance/expenses" element={<Expenses />} />

@@ -5,6 +5,7 @@ import {
   notifyCommissionPaid,
   notifyPaymentConfirmed
 } from "../notifications/notifications.service";
+import { applyManualPaymentClientSpend } from "../crm/crm.loyalty";
 import {
   calculateCommissionAmount,
   calculateDre
@@ -133,6 +134,11 @@ export const createManualPayment = async (tenantId: string, payload: ManualPayme
   });
 
   if (payment.status === PaymentStatus.PAGO) {
+    await applyManualPaymentClientSpend(prisma, {
+      tenantId,
+      clientId: payload.clientId,
+      amountPaid: Number(payment.amount)
+    });
     fireNotification(notifyPaymentConfirmed(tenantId, Number(payment.amount)));
   }
 

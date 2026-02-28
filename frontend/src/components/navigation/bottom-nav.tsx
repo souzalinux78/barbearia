@@ -1,13 +1,13 @@
 import { NavLink } from "react-router-dom";
-import { navItems } from "./nav-items";
+import { bottomNavItems } from "./nav-items";
 
 export const BottomNav = () => (
   <nav className="fixed inset-x-0 bottom-0 z-40 border-t border-white/10 bg-charcoal/95 px-2 pb-[calc(0.5rem+env(safe-area-inset-bottom))] pt-2 md:hidden">
     <ul
       className="grid gap-1"
-      style={{ gridTemplateColumns: `repeat(${navItems.length}, minmax(0, 1fr))` }}
+      style={{ gridTemplateColumns: `repeat(${bottomNavItems.length}, minmax(0, 1fr))` }}
     >
-      {navItems.map((item) => (
+      {bottomNavItems.map((item) => (
         <li key={item.to}>
           <NavLink
             to={item.to}
