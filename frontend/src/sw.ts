@@ -30,7 +30,10 @@ registerRoute(
 );
 
 registerRoute(
-  ({ url, request }) => url.pathname.startsWith("/api/v1/") && request.method === "GET",
+  ({ url, request }) =>
+    url.pathname.startsWith("/api/v1/") &&
+    request.method === "GET" &&
+    !request.headers.has("authorization"),
   new StaleWhileRevalidate({
     cacheName: "api-cache",
     plugins: [

@@ -2,7 +2,8 @@ import { BillingGateway, PlanName } from "@prisma/client";
 import { z } from "zod";
 
 export const subscribeSchema = z.object({
-  planName: z.nativeEnum(PlanName)
+  planName: z.nativeEnum(PlanName),
+  regenerate: z.boolean().optional().default(false)
 });
 
 export const cancelSchema = z.object({

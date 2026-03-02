@@ -59,6 +59,13 @@ const toNumber = (value: NumericLike): number => Number(value ?? 0);
 
 const formatDate = (value: Date): string => value.toISOString().slice(0, 10);
 
+const toSqlTimestamp = (value: Date): string => {
+  const pad = (input: number, size = 2) => String(input).padStart(size, "0");
+  return `${value.getUTCFullYear()}-${pad(value.getUTCMonth() + 1)}-${pad(value.getUTCDate())} ${pad(
+    value.getUTCHours()
+  )}:${pad(value.getUTCMinutes())}:${pad(value.getUTCSeconds())}.${pad(value.getUTCMilliseconds(), 3)}`;
+};
+
 const resolvePeriod = (query: DashboardPeriodQueryInput): DateRange => {
   const now = new Date();
 
@@ -170,11 +177,11 @@ export const getRevenueMetrics = async (
         }>
       >(Prisma.sql`
         SELECT
-          COALESCE(SUM(CASE WHEN p.paid_at BETWEEN ${dayStart} AND ${dayEnd} THEN p.amount ELSE 0 END), 0) AS revenue_today,
-          COALESCE(SUM(CASE WHEN p.paid_at BETWEEN ${weekStart} AND ${dayEnd} THEN p.amount ELSE 0 END), 0) AS revenue_week,
-          COALESCE(SUM(CASE WHEN p.paid_at BETWEEN ${monthStart} AND ${dayEnd} THEN p.amount ELSE 0 END), 0) AS revenue_month,
-          COALESCE(SUM(CASE WHEN p.paid_at BETWEEN ${period.start} AND ${period.end} THEN p.amount ELSE 0 END), 0) AS revenue_period,
-          COALESCE(SUM(CASE WHEN p.paid_at BETWEEN ${previousPeriod.start} AND ${previousPeriod.end} THEN p.amount ELSE 0 END), 0) AS revenue_previous
+          COALESCE(SUM(CASE WHEN p.paid_at BETWEEN ${toSqlTimestamp(dayStart)}::timestamp AND ${toSqlTimestamp(dayEnd)}::timestamp THEN p.amount ELSE 0 END), 0) AS revenue_today,
+          COALESCE(SUM(CASE WHEN p.paid_at BETWEEN ${toSqlTimestamp(weekStart)}::timestamp AND ${toSqlTimestamp(dayEnd)}::timestamp THEN p.amount ELSE 0 END), 0) AS revenue_week,
+          COALESCE(SUM(CASE WHEN p.paid_at BETWEEN ${toSqlTimestamp(monthStart)}::timestamp AND ${toSqlTimestamp(dayEnd)}::timestamp THEN p.amount ELSE 0 END), 0) AS revenue_month,
+          COALESCE(SUM(CASE WHEN p.paid_at BETWEEN ${toSqlTimestamp(period.start)}::timestamp AND ${toSqlTimestamp(period.end)}::timestamp THEN p.amount ELSE 0 END), 0) AS revenue_period,
+          COALESCE(SUM(CASE WHEN p.paid_at BETWEEN ${toSqlTimestamp(previousPeriod.start)}::timestamp AND ${toSqlTimestamp(previousPeriod.end)}::timestamp THEN p.amount ELSE 0 END), 0) AS revenue_previous
         FROM payments p
         LEFT JOIN appointments a ON a.id = p.appointment_id
         WHERE p.tenant_id = ${tenantId}::uuid
@@ -189,7 +196,7 @@ export const getRevenueMetrics = async (
         LEFT JOIN appointments a ON a.id = p.appointment_id
         WHERE p.tenant_id = ${tenantId}::uuid
           AND p.status = 'PAGO'::"PaymentStatus"
-          AND p.paid_at BETWEEN ${period.start} AND ${period.end}
+          AND p.paid_at BETWEEN ${toSqlTimestamp(period.start)}::timestamp AND ${toSqlTimestamp(period.end)}::timestamp
           ${paymentActorFilter}
         GROUP BY DATE_TRUNC('day', p.paid_at)
         ORDER BY day_bucket
@@ -204,7 +211,7 @@ export const getRevenueMetrics = async (
         INNER JOIN users u ON u.id = a.barber_id
         WHERE p.tenant_id = ${tenantId}::uuid
           AND p.status = 'PAGO'::"PaymentStatus"
-          AND p.paid_at BETWEEN ${period.start} AND ${period.end}
+          AND p.paid_at BETWEEN ${toSqlTimestamp(period.start)}::timestamp AND ${toSqlTimestamp(period.end)}::timestamp
           ${paymentActorFilter}
         GROUP BY u.id, u.name
         ORDER BY revenue DESC
@@ -235,7 +242,7 @@ export const getRevenueMetrics = async (
         LEFT JOIN appointments a ON a.id = p.appointment_id
         WHERE p.tenant_id = ${tenantId}::uuid
           AND p.status = 'PAGO'::"PaymentStatus"
-          AND p.paid_at BETWEEN ${monthsStart} AND ${period.end}
+          AND p.paid_at BETWEEN ${toSqlTimestamp(monthsStart)}::timestamp AND ${toSqlTimestamp(period.end)}::timestamp
           ${paymentActorFilter}
         GROUP BY DATE_TRUNC('month', p.paid_at)
         ORDER BY month_bucket
@@ -427,7 +434,7 @@ export const getClientMetrics = async (
           WHERE p.tenant_id = ${tenantId}::uuid
             AND p.status = 'PAGO'::"PaymentStatus"
             AND p.client_id IS NOT NULL
-            AND p.paid_at BETWEEN ${period.start} AND ${period.end}
+            AND p.paid_at BETWEEN ${toSqlTimestamp(period.start)}::timestamp AND ${toSqlTimestamp(period.end)}::timestamp
             ${paymentBarberFilter}
         `),
         prisma.$queryRaw<Array<{ vip_revenue: NumericLike; total_revenue: NumericLike }>>(Prisma.sql`
@@ -439,7 +446,7 @@ export const getClientMetrics = async (
           LEFT JOIN appointments a ON a.id = p.appointment_id
           WHERE p.tenant_id = ${tenantId}::uuid
             AND p.status = 'PAGO'::"PaymentStatus"
-            AND p.paid_at BETWEEN ${period.start} AND ${period.end}
+            AND p.paid_at BETWEEN ${toSqlTimestamp(period.start)}::timestamp AND ${toSqlTimestamp(period.end)}::timestamp
             ${paymentBarberFilter}
         `)
       ]);
@@ -609,7 +616,7 @@ export const getBarberMetrics = async (
         INNER JOIN appointments a ON a.id = p.appointment_id
         WHERE p.tenant_id = ${tenantId}::uuid
           AND p.status = 'PAGO'::"PaymentStatus"
-          AND p.paid_at BETWEEN ${period.start} AND ${period.end}
+          AND p.paid_at BETWEEN ${toSqlTimestamp(period.start)}::timestamp AND ${toSqlTimestamp(period.end)}::timestamp
         GROUP BY a.barber_id
       ) revenue_data ON revenue_data.barber_id = u.id
       LEFT JOIN (
@@ -888,7 +895,7 @@ export const getAdvancedMetrics = async (
         LEFT JOIN appointments a ON a.id = p.appointment_id
         WHERE p.tenant_id = ${tenantId}::uuid
           AND p.status = 'PAGO'::"PaymentStatus"
-          AND p.paid_at BETWEEN ${period.start} AND ${period.end}
+          AND p.paid_at BETWEEN ${toSqlTimestamp(period.start)}::timestamp AND ${toSqlTimestamp(period.end)}::timestamp
           ${paymentBarberFilter}
       `),
       actor.role === RoleName.BARBER
@@ -898,7 +905,7 @@ export const getAdvancedMetrics = async (
             FROM expenses e
             WHERE e.tenant_id = ${tenantId}::uuid
               AND e.paid = true
-              AND e.paid_at BETWEEN ${period.start} AND ${period.end}
+              AND e.paid_at BETWEEN ${toSqlTimestamp(period.start)}::timestamp AND ${toSqlTimestamp(period.end)}::timestamp
           `),
       prisma.$queryRaw<Array<{ commissions: NumericLike }>>(Prisma.sql`
         SELECT COALESCE(SUM(c.amount), 0) AS commissions

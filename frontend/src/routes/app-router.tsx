@@ -1,12 +1,18 @@
 import { Suspense, lazy } from "react";
 import { BrowserRouter, Navigate, Route, Routes } from "react-router-dom";
 import { AppLayout } from "../layouts/app-layout";
+import { MasterLayout } from "../layouts/master-layout";
+import { useAuthStore } from "../store/auth.store";
 import { RequireAuth } from "./require-auth";
+import { RequireMasterAuth } from "./require-master-auth";
 import { LoginPage } from "../pages/login-page";
+import { RegisterPage } from "../pages/register-page";
+import { LandingPage } from "../pages/landing-page";
 import { ClientsPage } from "../pages/clients-page";
 import { ServicesPage } from "../pages/services-page";
 import { ProductsPage } from "../pages/products-page";
 import { SettingsPage } from "../pages/settings-page";
+import { UsersPage } from "../pages/users-page";
 
 const DashboardPage = lazy(() =>
   import("../pages/dashboard-page").then((module) => ({ default: module.DashboardPage }))
@@ -99,16 +105,71 @@ const ChallengesPerformancePage = lazy(() =>
     default: module.ChallengesPerformancePage
   }))
 );
+const LoginMasterPage = lazy(() =>
+  import("../pages/master/LoginMaster").then((module) => ({ default: module.LoginMasterPage }))
+);
+const PublicBookingPage = lazy(() =>
+  import("../pages/booking/PublicBookingPage").then((module) => ({ default: module.PublicBookingPage }))
+);
+const DashboardMasterPage = lazy(() =>
+  import("../pages/master/DashboardMaster").then((module) => ({ default: module.DashboardMasterPage }))
+);
+const MasterMetricsPage = lazy(() =>
+  import("../pages/master/Metrics").then((module) => ({ default: module.MasterMetricsPage }))
+);
+const MasterRevenuePage = lazy(() =>
+  import("../pages/master/Revenue").then((module) => ({ default: module.MasterRevenuePage }))
+);
+const MasterChurnPage = lazy(() =>
+  import("../pages/master/Churn").then((module) => ({ default: module.MasterChurnPage }))
+);
+const MasterAlertsPage = lazy(() =>
+  import("../pages/master/Alerts").then((module) => ({ default: module.MasterAlertsPage }))
+);
+const MasterBillingConfigPage = lazy(() =>
+  import("../pages/master/BillingConfig").then((module) => ({ default: module.MasterBillingConfigPage }))
+);
+const MasterPlansPage = lazy(() =>
+  import("../pages/master/Plans").then((module) => ({ default: module.MasterPlansPage }))
+);
+const MasterTenantsPage = lazy(() =>
+  import("../pages/master/Tenants").then((module) => ({ default: module.MasterTenantsPage }))
+);
+
+const RootEntry = () => {
+  const accessToken = useAuthStore((state) => state.accessToken);
+  return accessToken ? <Navigate to="/dashboard" replace /> : <LandingPage />;
+};
 
 export const AppRouter = () => (
   <BrowserRouter>
     <Suspense fallback={<div className="p-4 text-sm text-slate-300">Carregando...</div>}>
       <Routes>
+        <Route path="/" element={<RootEntry />} />
+        <Route path="/acessar" element={<Navigate to="/login" replace />} />
         <Route path="/login" element={<LoginPage />} />
+        <Route path="/register" element={<RegisterPage />} />
+        <Route path="/checkout" element={<RegisterPage />} />
+        <Route path="/admin" element={<Navigate to="/admin/login" replace />} />
+        <Route path="/master/login" element={<Navigate to="/admin/login" replace />} />
+        <Route path="/admin/login" element={<LoginMasterPage />} />
+        <Route path="/booking/:tenantSlug" element={<PublicBookingPage />} />
+
+        <Route element={<RequireMasterAuth />}>
+          <Route element={<MasterLayout />}>
+            <Route path="/master" element={<DashboardMasterPage />} />
+            <Route path="/master/metrics" element={<MasterMetricsPage />} />
+            <Route path="/master/revenue" element={<MasterRevenuePage />} />
+            <Route path="/master/churn" element={<MasterChurnPage />} />
+            <Route path="/master/alerts" element={<MasterAlertsPage />} />
+            <Route path="/master/billing" element={<MasterBillingConfigPage />} />
+            <Route path="/master/plans" element={<MasterPlansPage />} />
+            <Route path="/master/tenants" element={<MasterTenantsPage />} />
+          </Route>
+        </Route>
 
         <Route element={<RequireAuth />}>
           <Route element={<AppLayout />}>
-            <Route index element={<Navigate to="/dashboard" replace />} />
             <Route path="/dashboard" element={<DashboardPage />} />
             <Route path="/appointments" element={<DailyView />} />
             <Route path="/appointments/week" element={<WeeklyView />} />
@@ -137,6 +198,7 @@ export const AppRouter = () => (
             <Route path="/finance/commissions" element={<Commissions />} />
             <Route path="/finance/dre" element={<DRE />} />
             <Route path="/services" element={<ServicesPage />} />
+            <Route path="/users" element={<UsersPage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/billing/plans" element={<Plans />} />
             <Route path="/billing/subscription" element={<Subscription />} />
@@ -147,7 +209,7 @@ export const AppRouter = () => (
           </Route>
         </Route>
 
-        <Route path="*" element={<Navigate to="/dashboard" replace />} />
+        <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </Suspense>
   </BrowserRouter>

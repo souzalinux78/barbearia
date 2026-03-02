@@ -1,8 +1,19 @@
-import { FormEvent, useState } from "react";
+import { FormEvent, useEffect, useState } from "react";
 import { useMutation } from "@tanstack/react-query";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import { loginRequest } from "../services/auth.service";
 import { useAuthStore } from "../store/auth.store";
+import { trackEvent, trackPageView } from "../utils/analytics";
+
+const normalizeTenantSlug = (value: string) =>
+  value
+    .toLowerCase()
+    .trim()
+    .replace(/\s+/g, "-")
+    .replace(/_/g, "-")
+    .replace(/[^a-z0-9-]/g, "")
+    .replace(/-+/g, "-")
+    .replace(/^-|-$/g, "");
 
 export const LoginPage = () => {
   const navigate = useNavigate();
@@ -14,13 +25,24 @@ export const LoginPage = () => {
   });
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    trackPageView("login");
+  }, []);
+
   const mutation = useMutation({
     mutationFn: loginRequest,
     onSuccess: (data) => {
+      trackEvent("login_success", {
+        tenantSlug: formState.tenantSlug,
+        role: data.user.role
+      });
       setSession(data);
       navigate("/dashboard", { replace: true });
     },
     onError: () => {
+      trackEvent("login_error", {
+        tenantSlug: formState.tenantSlug
+      });
       setError("Falha no login. Verifique tenant, email e senha.");
     }
   });
@@ -28,6 +50,9 @@ export const LoginPage = () => {
   const onSubmit = (event: FormEvent) => {
     event.preventDefault();
     setError(null);
+    trackEvent("login_submit", {
+      tenantSlug: formState.tenantSlug
+    });
     mutation.mutate(formState);
   };
 
@@ -46,7 +71,10 @@ export const LoginPage = () => {
               required
               value={formState.tenantSlug}
               onChange={(event) =>
-                setFormState((current) => ({ ...current, tenantSlug: event.target.value }))
+                setFormState((current) => ({
+                  ...current,
+                  tenantSlug: normalizeTenantSlug(event.target.value)
+                }))
               }
               placeholder="nome-da-barbearia"
               className="w-full rounded-xl border border-white/15 bg-charcoal px-3 py-2 text-sm text-slate-100 outline-none ring-gold/50 focus:ring-2"
@@ -92,6 +120,19 @@ export const LoginPage = () => {
           >
             {mutation.isPending ? "Entrando..." : "Entrar"}
           </button>
+
+          <p className="text-center text-xs text-slate-400">
+            Primeira vez?{" "}
+            <Link to="/checkout" className="font-semibold text-gold underline">
+              Cadastrar barbearia
+            </Link>
+          </p>
+          <p className="text-center text-xs text-slate-400">
+            Dono da plataforma?{" "}
+            <Link to="/admin/login" className="font-semibold text-sky-300 underline">
+              Acesso Master
+            </Link>
+          </p>
         </form>
       </div>
     </div>

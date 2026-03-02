@@ -11,6 +11,7 @@ import {
   statusController,
   stripeWebhookController,
   subscribeController,
+  billingLifecycleSweepController,
   upsertGatewayConfigController
 } from "./billing.controller";
 import {
@@ -39,19 +40,20 @@ export const billingProtectedRoutes = Router();
 
 billingPublicRoutes.post("/webhook/stripe", webhookRateLimit, stripeWebhookController);
 billingPublicRoutes.post("/webhook/pix", webhookRateLimit, pixWebhookController);
+billingPublicRoutes.get("/plans", billingRateLimit, listPlansController);
 
 billingProtectedRoutes.get("/plans", billingRateLimit, listPlansController);
 billingProtectedRoutes.post(
   "/subscribe",
   billingRateLimit,
-  authorize(RoleName.OWNER, RoleName.ADMIN),
+  authorize(RoleName.OWNER, RoleName.ADMIN, RoleName.UNIT_OWNER, RoleName.UNIT_ADMIN),
   validate(subscribeSchema),
   subscribeController
 );
 billingProtectedRoutes.post(
   "/cancel",
   billingRateLimit,
-  authorize(RoleName.OWNER, RoleName.ADMIN),
+  authorize(RoleName.OWNER, RoleName.ADMIN, RoleName.UNIT_OWNER, RoleName.UNIT_ADMIN),
   validate(cancelSchema),
   cancelController
 );
@@ -59,14 +61,20 @@ billingProtectedRoutes.get("/status", billingRateLimit, statusController);
 billingProtectedRoutes.get(
   "/history",
   billingRateLimit,
-  authorize(RoleName.OWNER, RoleName.ADMIN),
+  authorize(RoleName.OWNER, RoleName.ADMIN, RoleName.UNIT_OWNER, RoleName.UNIT_ADMIN),
   validate(billingHistoryQuerySchema, "query"),
   historyController
 );
 billingProtectedRoutes.post(
   "/gateway-config",
   billingRateLimit,
-  authorize(RoleName.OWNER),
+  authorize(RoleName.OWNER, RoleName.UNIT_OWNER),
   validate(gatewayConfigUpsertSchema),
   upsertGatewayConfigController
+);
+billingProtectedRoutes.post(
+  "/run-lifecycle-sweep",
+  billingRateLimit,
+  authorize(RoleName.OWNER, RoleName.ADMIN, RoleName.UNIT_OWNER, RoleName.UNIT_ADMIN),
+  billingLifecycleSweepController
 );

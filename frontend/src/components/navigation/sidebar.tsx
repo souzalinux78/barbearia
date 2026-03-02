@@ -1,18 +1,19 @@
 import { NavLink } from "react-router-dom";
-import { sidebarNavItems } from "./nav-items";
+import { getSidebarNavItems } from "./nav-items";
 import logo from "../../assets/logo.svg";
 import { useAuthStore } from "../../store/auth.store";
 
 export const Sidebar = () => {
   const user = useAuthStore((state) => state.user);
   const clearSession = useAuthStore((state) => state.clearSession);
+  const navItems = getSidebarNavItems(user?.role);
 
   return (
     <aside className="hidden h-screen w-64 shrink-0 border-r border-white/10 bg-charcoal/90 px-4 py-6 md:flex md:flex-col">
       <img src={logo} alt="Barbearia Premium" className="mb-8 h-9 w-auto" />
 
       <nav className="flex-1 space-y-1 overflow-y-auto pr-1">
-        {sidebarNavItems.map((item) => (
+        {navItems.map((item) => (
           <NavLink
             key={item.to}
             to={item.to}

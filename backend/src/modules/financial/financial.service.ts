@@ -6,12 +6,16 @@ import {
   notifyPaymentConfirmed
 } from "../notifications/notifications.service";
 import { queuePaymentConfirmedAutomation } from "../automation/automation.engine";
-import { applyManualPaymentClientSpend } from "../crm/crm.loyalty";
+import {
+  applyFinalizationLoyalty,
+  applyManualPaymentClientSpend
+} from "../crm/crm.loyalty";
 import { processGamificationForPaymentConfirmed } from "../gamification/gamification.service";
 import {
   calculateCommissionAmount,
   calculateDre
 } from "./financial.calculations";
+import { invalidateDashboardCacheForTenant } from "../dashboard/dashboard.cache";
 import {
   CashflowQueryInput,
   CreateExpenseInput,
@@ -122,25 +126,66 @@ export const createManualPayment = async (tenantId: string, payload: ManualPayme
     }
   }
 
-  const payment = await prisma.payment.create({
-    data: {
-      tenantId,
-      appointmentId: payload.appointmentId,
-      clientId: payload.clientId,
-      method: payload.method,
-      status: payload.status,
-      amount: payload.amount,
-      paidAt: payload.paidAt ? new Date(payload.paidAt) : new Date(),
-      notes: payload.notes
-    }
-  });
+  const paidAt = payload.paidAt ? new Date(payload.paidAt) : new Date();
 
-  if (payment.status === PaymentStatus.PAGO) {
-    await applyManualPaymentClientSpend(prisma, {
-      tenantId,
-      clientId: payload.clientId,
-      amountPaid: Number(payment.amount)
-    });
+  const existingByAppointment = payload.appointmentId
+    ? await prisma.payment.findFirst({
+        where: {
+          tenantId,
+          appointmentId: payload.appointmentId
+        },
+        orderBy: {
+          createdAt: "desc"
+        }
+      })
+    : null;
+
+  const previousStatus = existingByAppointment?.status;
+  const payment = existingByAppointment
+    ? await prisma.payment.update({
+        where: {
+          id: existingByAppointment.id
+        },
+        data: {
+          method: payload.method,
+          status: payload.status,
+          amount: payload.amount,
+          paidAt,
+          notes: payload.notes
+        }
+      })
+    : await prisma.payment.create({
+        data: {
+          tenantId,
+          appointmentId: payload.appointmentId,
+          clientId: payload.clientId,
+          method: payload.method,
+          status: payload.status,
+          amount: payload.amount,
+          paidAt,
+          notes: payload.notes
+        }
+      });
+
+  const becamePaid = payment.status === PaymentStatus.PAGO && previousStatus !== PaymentStatus.PAGO;
+  if (becamePaid) {
+    invalidateDashboardCacheForTenant(tenantId);
+
+    if (payment.appointmentId) {
+      await applyFinalizationLoyalty(prisma, {
+        tenantId,
+        clientId: payload.clientId,
+        appointmentId: payment.appointmentId,
+        amountPaid: Number(payment.amount),
+        paidAt
+      });
+    } else {
+      await applyManualPaymentClientSpend(prisma, {
+        tenantId,
+        clientId: payload.clientId,
+        amountPaid: Number(payment.amount)
+      });
+    }
     fireNotification(notifyPaymentConfirmed(tenantId, Number(payment.amount)));
     fireNotification(
       queuePaymentConfirmedAutomation(tenantId, payload.clientId, Number(payment.amount))

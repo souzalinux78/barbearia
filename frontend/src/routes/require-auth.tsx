@@ -11,3 +11,4 @@ export const RequireAuth = () => {
 
   return <Outlet />;
 };
+

@@ -5,6 +5,7 @@ import { registerSW } from "virtual:pwa-register";
 import App from "./App";
 import "./styles/index.css";
 import { ThemeProvider } from "./contexts/theme.context";
+import { AppErrorBoundary } from "./components/app-error-boundary";
 
 const dismissSplash = () => {
   const splash = document.getElementById("app-splash");
@@ -17,26 +18,36 @@ const dismissSplash = () => {
   }, 420);
 };
 
-const updateSW = registerSW({
-  immediate: true,
-  onNeedRefresh: () => {
-    void updateSW(true);
-  },
-  onOfflineReady: () => {
-    dismissSplash();
-  },
-  onRegisteredSW: (_scriptUrl, registration) => {
-    if (!registration) {
-      return;
+if (import.meta.env.PROD) {
+  const updateSW = registerSW({
+    immediate: true,
+    onNeedRefresh: () => {
+      void updateSW(true);
+    },
+    onOfflineReady: () => {
+      dismissSplash();
+    },
+    onRegisteredSW: (_scriptUrl, registration) => {
+      if (!registration) {
+        return;
+      }
+      window.setInterval(() => {
+        void registration.update();
+      }, 60 * 60 * 1000);
+    },
+    onRegisterError: () => {
+      dismissSplash();
     }
-    window.setInterval(() => {
-      void registration.update();
-    }, 60 * 60 * 1000);
-  },
-  onRegisterError: () => {
-    dismissSplash();
+  });
+} else {
+  if ("serviceWorker" in navigator) {
+    navigator.serviceWorker
+      .getRegistrations()
+      .then((registrations) => Promise.all(registrations.map((registration) => registration.unregister())))
+      .catch(() => null);
   }
-});
+  dismissSplash();
+}
 
 if ("serviceWorker" in navigator) {
   navigator.serviceWorker.addEventListener("message", (event: MessageEvent) => {
@@ -62,11 +73,13 @@ const queryClient = new QueryClient({
 
 ReactDOM.createRoot(document.getElementById("root")!).render(
   <React.StrictMode>
-    <ThemeProvider>
-      <QueryClientProvider client={queryClient}>
-        <App />
-      </QueryClientProvider>
-    </ThemeProvider>
+    <AppErrorBoundary>
+      <ThemeProvider>
+        <QueryClientProvider client={queryClient}>
+          <App />
+        </QueryClientProvider>
+      </ThemeProvider>
+    </AppErrorBoundary>
   </React.StrictMode>
 );
 

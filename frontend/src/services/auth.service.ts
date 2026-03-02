@@ -1,5 +1,6 @@
 import { api } from "./api";
 import { SessionTenant, SessionUser } from "../store/auth.store";
+import { BillingGateway, PlanName } from "./billing.service";
 
 export type LoginPayload = {
   tenantSlug: string;
@@ -16,6 +17,10 @@ export type RegisterPayload = {
   ownerEmail: string;
   ownerPassword: string;
   ownerPhone?: string;
+  billing?: {
+    planName: PlanName;
+    gateway?: BillingGateway;
+  };
 };
 
 export type SessionResponse = {
@@ -25,12 +30,17 @@ export type SessionResponse = {
   refreshToken: string;
 };
 
+export type RegisterResponse = SessionResponse & {
+  checkout?: unknown;
+  checkoutWarning?: string | null;
+};
+
 export const loginRequest = async (payload: LoginPayload): Promise<SessionResponse> => {
   const { data } = await api.post<SessionResponse>("/auth/login", payload);
   return data;
 };
 
-export const registerRequest = async (payload: RegisterPayload): Promise<SessionResponse> => {
-  const { data } = await api.post<SessionResponse>("/auth/register-tenant", payload);
+export const registerRequest = async (payload: RegisterPayload): Promise<RegisterResponse> => {
+  const { data } = await api.post<RegisterResponse>("/auth/register-tenant", payload);
   return data;
 };

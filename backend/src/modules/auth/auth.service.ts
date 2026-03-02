@@ -7,7 +7,10 @@ import {
   generateRefreshToken,
   verifyRefreshToken
 } from "../../utils/jwt";
-import { ensureTenantBillingBootstrap } from "../billing/billing.service";
+import {
+  ensureTenantBillingBootstrap,
+  subscribeTenant
+} from "../billing/billing.service";
 import { ensureAutomationBootstrap } from "../automation/automation.engine";
 import { loginSchema, refreshSchema, registerTenantSchema } from "./auth.schemas";
 
@@ -110,6 +113,20 @@ export const registerTenant = async (input: RegisterTenantInput) => {
     data: { refreshTokenHash: await hashPassword(refreshToken) }
   });
 
+  let checkout: unknown = null;
+  let checkoutWarning: string | null = null;
+  if (input.billing) {
+    try {
+      checkout = await subscribeTenant(result.tenant.id, {
+        planName: input.billing.planName,
+        regenerate: true
+      });
+    } catch (error) {
+      checkoutWarning =
+        (error as Error).message || "Nao foi possivel concluir assinatura inicial automaticamente.";
+    }
+  }
+
   return {
     tenant: result.tenant,
     user: {
@@ -119,7 +136,9 @@ export const registerTenant = async (input: RegisterTenantInput) => {
       role: result.owner.role.name
     },
     accessToken,
-    refreshToken
+    refreshToken,
+    checkout,
+    checkoutWarning
   };
 };
 

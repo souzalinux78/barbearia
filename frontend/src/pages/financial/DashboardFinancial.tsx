@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useQuery } from "@tanstack/react-query";
+import { Link } from "react-router-dom";
 import { Card } from "../../components/ui/card";
 import { Skeleton } from "../../components/ui/skeleton";
 import {
@@ -21,12 +22,14 @@ export const DashboardFinancial = () => {
 
   const summaryQuery = useQuery({
     queryKey: ["financial-summary"],
-    queryFn: getFinancialSummary
+    queryFn: getFinancialSummary,
+    refetchOnMount: "always"
   });
 
   const metricsQuery = useQuery({
     queryKey: ["financial-metrics", quick],
-    queryFn: () => getFinancialMetrics(quick)
+    queryFn: () => getFinancialMetrics(quick),
+    refetchOnMount: "always"
   });
 
   const isLoading = summaryQuery.isLoading || metricsQuery.isLoading;
@@ -54,6 +57,14 @@ export const DashboardFinancial = () => {
           <h1 className="text-2xl font-bold text-slate-100">Financeiro Inteligente</h1>
           <p className="text-sm text-slate-400">Dashboard financeiro com indicadores e crescimento.</p>
         </div>
+        <Card>
+          <p className="text-xs text-slate-300">
+            Recebimento PIX da agenda publica e configurado em <span className="font-semibold text-gold">Perfil</span>.
+          </p>
+          <Link to="/settings" className="mt-2 inline-block text-xs font-semibold text-gold underline">
+            Abrir configuracoes da barbearia
+          </Link>
+        </Card>
         <FinancialNav />
         <QuickFilters value={quick} onChange={setQuick} />
       </header>

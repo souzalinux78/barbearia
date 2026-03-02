@@ -39,6 +39,13 @@ import {
 
 const DEFAULT_OPEN_MIN = 8 * 60;
 const DEFAULT_CLOSE_MIN = 20 * 60;
+const DEFAULT_WORKING_DAYS = [1, 2, 3, 4, 5, 6];
+
+type AvailabilityWindow = {
+  startMin: number;
+  endMin: number;
+  workingDays: number[];
+};
 
 const timeStringToDate = (value: string): Date => new Date(`1970-01-01T${value}:00.000Z`);
 
@@ -70,15 +77,27 @@ const toAppointmentDTO = async (
     appointment.clientId && appointment.status !== AppointmentStatus.BLOQUEADO
       ? (await repository.countClientFinalizedAppointments(tenantId, appointment.clientId)) >= 3
       : false;
+  const latestPaymentRow = appointment.payments?.[0];
+  const { payments, ...safeAppointment } = appointment;
 
   return {
-    ...appointment,
+    ...safeAppointment,
     date: appointment.date.toISOString().slice(0, 10),
     startTime: toTimeString(appointment.startTime),
     endTime: toTimeString(appointment.endTime),
     recurringClient,
     vipBadge: appointment.client?.vipBadge ?? false,
-    noShowAlert: (appointment.client?.noShowCount ?? 0) >= 2
+    noShowAlert: (appointment.client?.noShowCount ?? 0) >= 2,
+    latestPayment: latestPaymentRow
+      ? {
+          id: latestPaymentRow.id,
+          method: latestPaymentRow.method,
+          status: latestPaymentRow.status,
+          amount: Number(latestPaymentRow.amount),
+          paidAt: latestPaymentRow.paidAt?.toISOString() ?? null,
+          notes: latestPaymentRow.notes
+        }
+      : null
   };
 };
 
@@ -548,7 +567,13 @@ export const updateAppointmentStatus = async (
   return toAppointmentDTO(appointmentsRepository, tenantId, updated);
 };
 
-export const getAvailableSlots = async (tenantId: string, query: AvailableSlotsInput) => {
+export const getAvailableSlots = async (
+  tenantId: string,
+  query: AvailableSlotsInput,
+  options?: {
+    window?: AvailabilityWindow;
+  }
+) => {
   const date = normalizeDate(query.date);
   const serviceIds = resolveServiceSelection({
     serviceId: query.serviceId,
@@ -565,10 +590,24 @@ export const getAvailableSlots = async (tenantId: string, query: AvailableSlotsI
 
   const slots: Array<{ startTime: string; endTime: string; available: boolean }> = [];
   const dateValue = date.toISOString().slice(0, 10);
+  const dayOfWeek = date.getUTCDay();
+  const window = options?.window ?? {
+    startMin: DEFAULT_OPEN_MIN,
+    endMin: DEFAULT_CLOSE_MIN,
+    workingDays: DEFAULT_WORKING_DAYS
+  };
+  const workingDays = window.workingDays.length ? window.workingDays : DEFAULT_WORKING_DAYS;
+  if (!workingDays.includes(dayOfWeek)) {
+    return {
+      barberId: query.barberId,
+      date: dateValue,
+      slots
+    };
+  }
 
   for (
-    let cursor = DEFAULT_OPEN_MIN;
-    cursor + duration <= DEFAULT_CLOSE_MIN;
+    let cursor = window.startMin;
+    cursor + duration <= window.endMin;
     cursor += query.intervalMin
   ) {
     const candidate = {

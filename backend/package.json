@@ -16,6 +16,10 @@
     "test:notifications": "tsx --test src/modules/notifications/__tests__/notifications.schemas.test.ts",
     "test:automation": "tsx --test src/modules/automation/__tests__/automation.calculations.test.ts",
     "test:gamification": "tsx --test src/modules/gamification/__tests__/gamification.calculations.test.ts",
+    "test:master": "tsx --test src/modules/master/__tests__/master.calculations.test.ts",
+    "master:create-admin": "tsx src/scripts/create-master-admin.ts",
+    "release:check": "tsx src/scripts/release-readiness.ts",
+    "plans:seed": "tsx src/scripts/seed-commercial-plans.ts",
     "prisma:generate": "prisma generate",
     "prisma:migrate": "prisma migrate dev",
     "prisma:deploy": "prisma migrate deploy"

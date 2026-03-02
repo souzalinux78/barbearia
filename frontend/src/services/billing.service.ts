@@ -39,6 +39,12 @@ export type BillingStatusResponse = {
   blocked: boolean;
   warning3Days: boolean;
   daysToRenewal: number;
+  pendingPix: {
+    externalRef: string | null;
+    createdAt: string | null;
+    qrCode: string | null;
+    copyPasteCode: string | null;
+  } | null;
 };
 
 export type BillingHistoryResponse = {
@@ -57,6 +63,16 @@ export type BillingHistoryResponse = {
   };
 };
 
+export type GatewayConfigPayload = {
+  stripeActive: boolean;
+  pixActive: boolean;
+  stripeSecretKey?: string;
+  stripeWebhookSecret?: string;
+  pixApiKey?: string;
+  pixWebhookSecret?: string;
+  target?: "TENANT" | "GLOBAL";
+};
+
 export const getBillingPlans = async (): Promise<BillingPlan[]> => {
   const { data } = await api.get<BillingPlan[]>("/billing/plans");
   return data;
@@ -67,8 +83,13 @@ export const getBillingStatus = async (): Promise<BillingStatusResponse> => {
   return data;
 };
 
-export const subscribePlan = async (planName: PlanName) => {
-  const { data } = await api.post("/billing/subscribe", { planName });
+export const subscribePlan = async (planName: PlanName, regenerate = false) => {
+  const { data } = await api.post("/billing/subscribe", { planName, regenerate });
+  return data;
+};
+
+export const upsertBillingGatewayConfig = async (payload: GatewayConfigPayload) => {
+  const { data } = await api.post("/billing/gateway-config", payload);
   return data;
 };
 

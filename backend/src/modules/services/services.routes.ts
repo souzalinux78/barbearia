@@ -10,7 +10,7 @@ export const servicesRoutes = Router();
 servicesRoutes.get("/", validate(listServicesSchema, "query"), listServicesController);
 servicesRoutes.post(
   "/",
-  authorize(RoleName.OWNER, RoleName.ADMIN),
+  authorize(RoleName.OWNER, RoleName.ADMIN, RoleName.UNIT_OWNER, RoleName.UNIT_ADMIN),
   validate(createServiceSchema),
   createServiceController
 );

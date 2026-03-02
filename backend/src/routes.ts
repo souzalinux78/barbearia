@@ -16,10 +16,15 @@ import { franchiseRoutes } from "./modules/franchise/franchise.routes";
 import { whatsappProtectedRoutes, whatsappPublicRoutes } from "./modules/whatsapp/whatsapp.routes";
 import { automationRoutes } from "./modules/automation/automation.routes";
 import { gamificationRoutes } from "./modules/gamification/gamification.routes";
+import { masterAuthRoutes } from "./modules/master/master-auth.routes";
+import { masterRoutes } from "./modules/master/master.routes";
+import { publicBookingRoutes } from "./modules/public-booking/public-booking.routes";
+import { marketingPublicRoutes } from "./modules/marketing/marketing.routes";
 import { authMiddleware } from "./middlewares/auth.middleware";
 import { tenantMiddleware } from "./middlewares/tenant.middleware";
 import { hierarchyMiddleware } from "./middlewares/hierarchy.middleware";
 import { checkSubscriptionStatus } from "./middlewares/subscription-status.middleware";
+import { prisma } from "./config/prisma";
 
 export const apiRouter = Router();
 
@@ -27,9 +32,28 @@ apiRouter.get("/health", (_req, res) => {
   res.status(200).json({ status: "ok", service: "barbearia-api" });
 });
 
+apiRouter.get("/health/ready", async (_req, res) => {
+  try {
+    await prisma.$queryRaw`SELECT 1`;
+    res.status(200).json({
+      status: "ready",
+      database: "ok"
+    });
+  } catch {
+    res.status(503).json({
+      status: "not_ready",
+      database: "error"
+    });
+  }
+});
+
 apiRouter.use("/auth", authRoutes);
+apiRouter.use("/admin", masterAuthRoutes);
 apiRouter.use("/billing", billingPublicRoutes);
 apiRouter.use("/whatsapp", whatsappPublicRoutes);
+apiRouter.use("/public/booking", publicBookingRoutes);
+apiRouter.use("/marketing", marketingPublicRoutes);
+apiRouter.use("/master", masterRoutes);
 apiRouter.use(authMiddleware);
 apiRouter.use(tenantMiddleware);
 apiRouter.use(hierarchyMiddleware);

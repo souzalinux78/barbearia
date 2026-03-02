@@ -1,3 +1,4 @@
+import { BillingGateway, PlanName } from "@prisma/client";
 import { z } from "zod";
 
 export const registerTenantSchema = z.object({
@@ -12,7 +13,13 @@ export const registerTenantSchema = z.object({
   ownerName: z.string().min(2),
   ownerEmail: z.string().email(),
   ownerPassword: z.string().min(8),
-  ownerPhone: z.string().min(8).optional()
+  ownerPhone: z.string().min(8).optional(),
+  billing: z
+    .object({
+      planName: z.nativeEnum(PlanName),
+      gateway: z.nativeEnum(BillingGateway).optional()
+    })
+    .optional()
 });
 
 export const loginSchema = z.object({

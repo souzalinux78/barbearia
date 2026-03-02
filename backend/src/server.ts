@@ -6,6 +6,7 @@ import { startCrmSchedulers, stopCrmSchedulers } from "./modules/crm/crm.loyalty
 import { startFranchiseSchedulers, stopFranchiseSchedulers } from "./modules/franchise/franchise.service";
 import { startAutomationSchedulers, stopAutomationSchedulers } from "./modules/automation/automation.engine";
 import { startWhatsAppQueueWorker, stopWhatsAppQueueWorker } from "./modules/whatsapp/whatsapp.service";
+import { startBillingSchedulers, stopBillingSchedulers } from "./modules/billing/billing.service";
 
 const bootstrap = async (): Promise<void> => {
   startNotificationSchedulers();
@@ -13,6 +14,7 @@ const bootstrap = async (): Promise<void> => {
   startFranchiseSchedulers();
   startAutomationSchedulers();
   startWhatsAppQueueWorker();
+  startBillingSchedulers();
   app.listen(env.PORT, () => {
     // eslint-disable-next-line no-console
     console.log(`API running on port ${env.PORT}`);
@@ -25,6 +27,7 @@ process.on("SIGINT", async () => {
   stopFranchiseSchedulers();
   stopAutomationSchedulers();
   stopWhatsAppQueueWorker();
+  stopBillingSchedulers();
   await prisma.$disconnect();
   process.exit(0);
 });
@@ -35,6 +38,7 @@ process.on("SIGTERM", async () => {
   stopFranchiseSchedulers();
   stopAutomationSchedulers();
   stopWhatsAppQueueWorker();
+  stopBillingSchedulers();
   await prisma.$disconnect();
   process.exit(0);
 });

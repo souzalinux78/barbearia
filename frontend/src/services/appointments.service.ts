@@ -38,6 +38,14 @@ export type AppointmentItem = {
       name: string;
     };
   }>;
+  latestPayment?: {
+    id: string;
+    method: "PIX" | "DINHEIRO" | "CARTAO_CREDITO" | "CARTAO_DEBITO" | "TRANSFERENCIA";
+    status: "PENDENTE" | "PAGO" | "CANCELADO";
+    amount: number;
+    paidAt: string | null;
+    notes?: string | null;
+  } | null;
 };
 
 export type AppointmentListResponse = {

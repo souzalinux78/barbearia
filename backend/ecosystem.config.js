@@ -10,7 +10,8 @@ module.exports = {
       max_memory_restart: "500M",
       env: {
         NODE_ENV: "production",
-        PORT: 4000
+        PORT: 4000,
+        PRISMA_CLIENT_ENGINE_TYPE: "library"
       },
       error_file: "./logs/error.log",
       out_file: "./logs/out.log",

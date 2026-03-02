@@ -1,13 +1,11 @@
 import {
   AppointmentStatus,
-  PaymentStatus,
   Prisma,
   PrismaClient,
   RoleName
 } from "@prisma/client";
 import { prisma } from "../../config/prisma";
 import { calculateCommissionAmount } from "../financial/financial.calculations";
-import { applyFinalizationLoyalty } from "../crm/crm.loyalty";
 
 type DbClient = PrismaClient | Prisma.TransactionClient;
 
@@ -24,6 +22,21 @@ const appointmentInclude = {
     include: {
       service: true
     }
+  },
+  payments: {
+    select: {
+      id: true,
+      method: true,
+      status: true,
+      amount: true,
+      paidAt: true,
+      createdAt: true,
+      notes: true
+    },
+    orderBy: {
+      createdAt: "desc"
+    },
+    take: 1
   }
 } satisfies Prisma.AppointmentInclude;
 
@@ -377,52 +390,6 @@ export class AppointmentsRepository {
     barberId: string;
     amount: number;
   }) {
-    const appointment = await this.db.appointment.findFirst({
-      where: {
-        tenantId: data.tenantId,
-        id: data.appointmentId
-      },
-      select: {
-        clientId: true
-      }
-    });
-
-    if (!appointment?.clientId) {
-      return;
-    }
-
-    const existingPayment = await this.db.payment.findFirst({
-      where: {
-        tenantId: data.tenantId,
-        appointmentId: data.appointmentId,
-        status: PaymentStatus.PAGO
-      }
-    });
-
-    const paidAt = new Date();
-    if (!existingPayment) {
-      await this.db.payment.create({
-        data: {
-          tenantId: data.tenantId,
-          appointmentId: data.appointmentId,
-          clientId: appointment.clientId,
-          method: "DINHEIRO",
-          status: "PAGO",
-          amount: data.amount,
-          paidAt,
-          notes: "Pagamento automatico na finalizacao do agendamento."
-        }
-      });
-
-      await applyFinalizationLoyalty(this.db, {
-        tenantId: data.tenantId,
-        clientId: appointment.clientId,
-        appointmentId: data.appointmentId,
-        amountPaid: data.amount,
-        paidAt
-      });
-    }
-
     const barber = await this.db.user.findFirst({
       where: {
         id: data.barberId,

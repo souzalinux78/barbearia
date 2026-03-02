@@ -4,6 +4,7 @@ import { Link, Outlet, useLocation } from "react-router-dom";
 import { Sidebar } from "../components/navigation/sidebar";
 import { BottomNav } from "../components/navigation/bottom-nav";
 import { getBillingStatus } from "../services/billing.service";
+import { useAuthStore } from "../store/auth.store";
 import {
   requestPushPermissionAndSubscribe,
   syncPushSubscription
@@ -11,9 +12,11 @@ import {
 
 export const AppLayout = () => {
   const location = useLocation();
+  const tenant = useAuthStore((state) => state.tenant);
   const [isOffline, setIsOffline] = useState(!navigator.onLine);
   const [pushBannerVisible, setPushBannerVisible] = useState(false);
   const [pushFeedback, setPushFeedback] = useState("");
+  const [bookingLinkFeedback, setBookingLinkFeedback] = useState("");
 
   const billingQuery = useQuery({
     queryKey: ["billing-status"],
@@ -59,18 +62,51 @@ export const AppLayout = () => {
   const billing = billingQuery.data;
   const showPastDueBanner =
     billing?.subscription.status === "PAST_DUE" || billing?.subscription.status === "INCOMPLETE";
+  const billingBannerText =
+    billing?.subscription.status === "INCOMPLETE"
+      ? "Cobranca pendente. Conclua o pagamento para liberar o acesso completo."
+      : "Assinatura em atraso. Regularize para evitar bloqueio completo.";
   const showRenewalWarning = billing?.warning3Days;
   const isBillingRoute = location.pathname.startsWith("/billing");
   const showBlockingModal = Boolean(billing?.blocked && !isBillingRoute);
   const showOfflineBanner = isOffline;
   const showPushBanner = pushBannerVisible && !showBlockingModal;
+  const bookingUrl =
+    tenant?.slug && typeof window !== "undefined"
+      ? `${window.location.origin}/booking/${tenant.slug}`
+      : "";
+
+  const copyBookingLink = async () => {
+    if (!bookingUrl) {
+      return;
+    }
+
+    try {
+      if (navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(bookingUrl);
+      } else {
+        const input = document.createElement("textarea");
+        input.value = bookingUrl;
+        document.body.appendChild(input);
+        input.select();
+        document.execCommand("copy");
+        document.body.removeChild(input);
+      }
+      setBookingLinkFeedback("Link copiado para area de transferencia.");
+      window.setTimeout(() => setBookingLinkFeedback(""), 2200);
+    } catch {
+      setBookingLinkFeedback("Nao foi possivel copiar automaticamente.");
+      window.setTimeout(() => setBookingLinkFeedback(""), 2200);
+    }
+  };
+
   return (
     <div className="flex min-h-screen bg-transparent">
       <Sidebar />
       <div className="flex w-full flex-col">
         {showPastDueBanner ? (
           <div className="sticky top-0 z-40 border-b border-rose-400/25 bg-rose-500/10 px-4 py-2 text-xs text-rose-200 md:px-8">
-            Assinatura em atraso. Regularize para evitar bloqueio completo.
+            {billingBannerText}
             <Link to="/billing/upgrade" className="ml-2 font-semibold underline">
               Resolver agora
             </Link>
@@ -108,6 +144,37 @@ export const AppLayout = () => {
         ) : null}
 
         <main className="flex-1 px-4 pb-[calc(6rem+env(safe-area-inset-bottom))] pt-4 md:px-8 md:pb-8 md:pt-8">
+          {tenant?.slug ? (
+            <div className="mb-4 rounded-2xl border border-gold/25 bg-gold/10 p-3">
+              <p className="text-xs font-semibold uppercase tracking-wide text-gold">Link publico de agendamento</p>
+              <p className="mt-1 break-all text-xs text-slate-200">{bookingUrl}</p>
+              <div className="mt-3 flex flex-wrap gap-2">
+                <button
+                  type="button"
+                  onClick={copyBookingLink}
+                  className="rounded-lg bg-gold px-3 py-2 text-xs font-semibold text-charcoal"
+                >
+                  Copiar link
+                </button>
+                <a
+                  href={bookingUrl}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="rounded-lg border border-white/20 px-3 py-2 text-xs font-semibold text-slate-100"
+                >
+                  Abrir pagina publica
+                </a>
+                <Link
+                  to="/settings"
+                  className="rounded-lg border border-gold/40 px-3 py-2 text-xs font-semibold text-gold"
+                >
+                  Configurar PIX e horarios
+                </Link>
+              </div>
+              {bookingLinkFeedback ? <p className="mt-2 text-xs text-slate-200">{bookingLinkFeedback}</p> : null}
+            </div>
+          ) : null}
+
           <div key={location.pathname} className="route-fade">
             <Outlet />
           </div>

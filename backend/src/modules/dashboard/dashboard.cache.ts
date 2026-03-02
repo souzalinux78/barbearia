@@ -41,6 +41,23 @@ class InMemoryDashboardCache implements DashboardCacheProvider {
 }
 
 export const dashboardCache: DashboardCacheProvider = new InMemoryDashboardCache();
+const DASHBOARD_PREFIX = "dashboard:";
+
+const DASHBOARD_CACHE_KEYS = [
+  "summary",
+  "revenue",
+  "clients",
+  "services",
+  "barbers",
+  "occupancy",
+  "advanced"
+] as const;
+
+export const invalidateDashboardCacheForTenant = (tenantId: string): void => {
+  DASHBOARD_CACHE_KEYS.forEach((cacheKey) => {
+    dashboardCache.deleteByPrefix(`${DASHBOARD_PREFIX}${cacheKey}:${tenantId}:`);
+  });
+};
 
 export const withCache = async <T>(
   key: string,

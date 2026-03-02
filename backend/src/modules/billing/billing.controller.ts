@@ -7,6 +7,7 @@ import {
   handlePixWebhook,
   handleStripeWebhook,
   listPlans,
+  runBillingLifecycleSweep,
   subscribeTenant,
   upsertGatewayConfig
 } from "./billing.service";
@@ -49,6 +50,11 @@ export const historyController = asyncHandler(async (req: Request, res: Response
 
 export const upsertGatewayConfigController = asyncHandler(async (req: Request, res: Response) => {
   const result = await upsertGatewayConfig(req.auth!.tenantId, req.body as GatewayConfigInput);
+  res.status(200).json(result);
+});
+
+export const billingLifecycleSweepController = asyncHandler(async (_req: Request, res: Response) => {
+  const result = await runBillingLifecycleSweep();
   res.status(200).json(result);
 });
 

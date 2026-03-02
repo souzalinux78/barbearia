@@ -16,7 +16,7 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["favicon.svg", "pwa-192.svg", "pwa-512.svg", "offline.html"],
       devOptions: {
-        enabled: true,
+        enabled: false,
         type: "module"
       },
       manifest: {

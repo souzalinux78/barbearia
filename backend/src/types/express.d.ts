@@ -15,6 +15,11 @@ declare global {
         role: RoleName;
         normalizedRole: RoleName;
       };
+      masterAuth?: {
+        adminId: string;
+        email: string;
+        role: "SUPER_ADMIN";
+      };
     }
   }
 }

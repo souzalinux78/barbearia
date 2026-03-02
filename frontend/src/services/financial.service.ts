@@ -97,6 +97,15 @@ export type FinancialMetrics = {
   receitaPorServico: Array<{ serviceId: string; serviceName: string; amount: number }>;
 };
 
+export type ManualPaymentPayload = {
+  appointmentId?: string;
+  clientId: string;
+  amount: number;
+  method: "PIX" | "DINHEIRO" | "CARTAO_CREDITO" | "CARTAO_DEBITO" | "TRANSFERENCIA";
+  status?: "PENDENTE" | "PAGO" | "CANCELADO";
+  notes?: string;
+};
+
 const getQuickParams = (quick: QuickFilter) => ({ quick });
 
 export const getFinancialSummary = async (): Promise<FinancialSummary> => {
@@ -170,5 +179,10 @@ export const getFinancialMetrics = async (quick: QuickFilter): Promise<Financial
   const { data } = await api.get<FinancialMetrics>("/financial/metrics", {
     params: { ...getQuickParams(quick) }
   });
+  return data;
+};
+
+export const createManualPayment = async (payload: ManualPaymentPayload) => {
+  const { data } = await api.post("/financial/payment", payload);
   return data;
 };

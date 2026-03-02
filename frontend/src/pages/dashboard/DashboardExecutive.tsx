@@ -96,7 +96,8 @@ export const DashboardExecutive = () => {
 
   const { data, isLoading, isFetching } = useQuery({
     queryKey: ["dashboard-executive", period],
-    queryFn: () => getDashboardSummary(period)
+    queryFn: () => getDashboardSummary(period),
+    refetchOnMount: "always"
   });
 
   const handleExport = async (format: "pdf" | "excel") => {

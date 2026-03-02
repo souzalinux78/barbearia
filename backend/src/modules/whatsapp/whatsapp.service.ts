@@ -33,7 +33,40 @@ const CONFIRMATION_LOOKBACK_MS = 72 * 60 * 60 * 1000;
 const outboundQueue: OutboundQueueJob[] = [];
 let queueTimer: NodeJS.Timeout | null = null;
 
-const normalizePhone = (value: string) => value.replace(/\D/g, "");
+const normalizePhone = (value: string) => {
+  const digits = value.replace(/\D/g, "");
+  if (!digits) {
+    return "";
+  }
+
+  if (digits.length === 10 || digits.length === 11) {
+    return `55${digits}`;
+  }
+
+  if ((digits.length === 12 || digits.length === 13) && digits.startsWith("55")) {
+    return digits;
+  }
+
+  return digits;
+};
+
+const phoneCandidates = (value: string) => {
+  const rawDigits = value.replace(/\D/g, "");
+  const normalized = normalizePhone(value);
+  const candidates = new Set<string>([value, rawDigits, normalized]);
+
+  if (rawDigits.startsWith("55") && (rawDigits.length === 12 || rawDigits.length === 13)) {
+    candidates.add(rawDigits.slice(2));
+  }
+
+  if ((rawDigits.length === 10 || rawDigits.length === 11) && !rawDigits.startsWith("55")) {
+    candidates.add(`+55${rawDigits}`);
+  } else if (normalized) {
+    candidates.add(`+${normalized}`);
+  }
+
+  return Array.from(candidates).filter(Boolean);
+};
 
 const normalizeSignature = (value: string) =>
   value.startsWith("sha256=") ? value.slice("sha256=".length) : value;
@@ -273,15 +306,11 @@ const processQueue = async () => {
 };
 
 const resolveClientByPhone = async (tenantId: string, phone: string) => {
-  const normalized = normalizePhone(phone);
+  const candidates = phoneCandidates(phone);
   return prisma.client.findFirst({
     where: {
       tenantId,
-      OR: [
-        { phone: phone },
-        { phone: normalized },
-        { phone: `+${normalized}` }
-      ]
+      OR: candidates.map((candidate) => ({ phone: candidate }))
     }
   });
 };

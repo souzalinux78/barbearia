@@ -21,58 +21,9 @@ import {
   PixWebhookInput,
   SubscribeInput
 } from "./billing.schemas";
+import { DEFAULT_PLAN_DEFINITIONS } from "./plan-catalog";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
-
-const DEFAULT_PLAN_DEFINITIONS: Array<{
-  name: PlanName;
-  price: number;
-  maxUsers: number;
-  maxBarbers: number;
-  maxAppointmentsMonth: number;
-  features: Record<string, boolean>;
-}> = [
-  {
-    name: PlanName.FREE,
-    price: 0,
-    maxUsers: 2,
-    maxBarbers: 1,
-    maxAppointmentsMonth: 120,
-    features: {
-      dashboard_basic: true,
-      financial_basic: true,
-      premium_analytics: false,
-      inventory: false
-    }
-  },
-  {
-    name: PlanName.PRO,
-    price: 199,
-    maxUsers: 10,
-    maxBarbers: 5,
-    maxAppointmentsMonth: 1000,
-    features: {
-      dashboard_basic: true,
-      financial_basic: true,
-      premium_analytics: true,
-      inventory: true
-    }
-  },
-  {
-    name: PlanName.PREMIUM,
-    price: 399,
-    maxUsers: 999,
-    maxBarbers: 999,
-    maxAppointmentsMonth: 100000,
-    features: {
-      dashboard_basic: true,
-      financial_basic: true,
-      premium_analytics: true,
-      inventory: true,
-      api_access: true
-    }
-  }
-];
 
 type StripeCheckoutResult = {
   externalSubscriptionId: string;
@@ -189,21 +140,6 @@ export const ensureTenantBillingBootstrap = async (tenantId: string) => {
       }
     });
   }
-
-  const config = await prisma.paymentGatewayConfig.findUnique({
-    where: { tenantId }
-  });
-  if (!config) {
-    await prisma.paymentGatewayConfig.create({
-      data: {
-        tenantId,
-        stripeActive: false,
-        pixActive: true,
-        pixApiKey: "SANDBOX",
-        pixWebhookSecret: env.DEFAULT_PIX_WEBHOOK_SECRET
-      }
-    });
-  }
 };
 
 const getStripeClient = (secretKey: string): Stripe =>
@@ -211,20 +147,7 @@ const getStripeClient = (secretKey: string): Stripe =>
     apiVersion: "2026-02-25.clover"
   });
 
-const getGatewayConfig = async (tenantId: string) => {
-  const tenantConfig = await prisma.paymentGatewayConfig.findUnique({
-    where: { tenantId }
-  });
-
-  if (tenantConfig) {
-    if (tenantConfig.pixActive && tenantConfig.stripeActive) {
-      throw new HttpError("Configuracao invalida: Stripe e PIX ativos ao mesmo tempo.", 422);
-    }
-    if (tenantConfig.stripeActive || tenantConfig.pixActive) {
-      return tenantConfig;
-    }
-  }
-
+const getGlobalGatewayConfig = async () => {
   const globalConfig = await prisma.paymentGatewayConfig.findFirst({
     where: { tenantId: null }
   });
@@ -240,7 +163,7 @@ const getGatewayConfig = async (tenantId: string) => {
   return globalConfig;
 };
 
-const resolveGateway = async (tenantId: string): Promise<{
+const resolveGlobalGateway = async (): Promise<{
   configId: string;
   gateway: BillingGateway;
   stripeSecretKey?: string;
@@ -248,7 +171,7 @@ const resolveGateway = async (tenantId: string): Promise<{
   pixApiKey?: string;
   pixWebhookSecret?: string;
 }> => {
-  const config = await getGatewayConfig(tenantId);
+  const config = await getGlobalGatewayConfig();
 
   if (config.stripeActive) {
     return {
@@ -343,43 +266,165 @@ const createStripeSubscription = async (input: {
   };
 };
 
+const normalizePixKey = (rawKey: string): string => {
+  const value = rawKey.trim();
+  if (!value) {
+    return "";
+  }
+
+  const emailPattern = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  if (emailPattern.test(value)) {
+    return value.toLowerCase();
+  }
+
+  const uuidPattern = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i;
+  if (uuidPattern.test(value)) {
+    return value.toLowerCase();
+  }
+
+  const digitsOnly = value.replace(/\D/g, "");
+  if (digitsOnly.length === 10 || digitsOnly.length === 11) {
+    return `+55${digitsOnly}`;
+  }
+  if ((digitsOnly.length === 12 || digitsOnly.length === 13) && digitsOnly.startsWith("55")) {
+    return `+${digitsOnly}`;
+  }
+  if (digitsOnly.length === 11 || digitsOnly.length === 14) {
+    return digitsOnly;
+  }
+  if (/^\+\d{10,15}$/.test(value)) {
+    return value;
+  }
+
+  return value;
+};
+
+const isValidPixKey = (value: string): boolean =>
+  /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value) ||
+  /^\+\d{10,15}$/.test(value) ||
+  /^\d{11}$/.test(value) ||
+  /^\d{14}$/.test(value) ||
+  /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(value);
+
+const emvField = (id: string, value: string) => `${id}${String(value.length).padStart(2, "0")}${value}`;
+
+const crc16Ccitt = (payload: string): string => {
+  let crc = 0xffff;
+  for (let index = 0; index < payload.length; index += 1) {
+    crc ^= payload.charCodeAt(index) << 8;
+    for (let bit = 0; bit < 8; bit += 1) {
+      if ((crc & 0x8000) !== 0) {
+        crc = (crc << 1) ^ 0x1021;
+      } else {
+        crc <<= 1;
+      }
+      crc &= 0xffff;
+    }
+  }
+  return crc.toString(16).toUpperCase().padStart(4, "0");
+};
+
+const sanitizeMerchantText = (value: string, maxLength: number, fallback: string): string => {
+  const sanitized = value
+    .normalize("NFD")
+    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/[^A-Za-z0-9 ]/g, " ")
+    .replace(/\s+/g, " ")
+    .trim()
+    .toUpperCase()
+    .slice(0, maxLength);
+  return sanitized || fallback;
+};
+
+const buildPixCopyPasteCode = (input: {
+  pixKey: string;
+  amount: number;
+  txid: string;
+  merchantName: string;
+  merchantCity: string;
+}) => {
+  const merchantAccountInfo = emvField(
+    "26",
+    `${emvField("00", "BR.GOV.BCB.PIX")}${emvField("01", input.pixKey)}`
+  );
+  const additionalData = emvField("62", emvField("05", input.txid.slice(0, 25)));
+
+  const payloadWithoutCRC = [
+    emvField("00", "01"),
+    merchantAccountInfo,
+    emvField("52", "0000"),
+    emvField("53", "986"),
+    emvField("54", input.amount.toFixed(2)),
+    emvField("58", "BR"),
+    emvField("59", input.merchantName),
+    emvField("60", input.merchantCity),
+    additionalData,
+    "6304"
+  ].join("");
+
+  return `${payloadWithoutCRC}${crc16Ccitt(payloadWithoutCRC)}`;
+};
+
 const createPixSubscription = async (input: {
   tenantId: string;
+  tenantName: string;
   plan: {
     name: PlanName;
     price: Prisma.Decimal;
   };
   pixApiKey: string;
 }): Promise<PixCheckoutResult> => {
+  if (!input.pixApiKey || input.pixApiKey.trim().length === 0) {
+    throw new HttpError("Configure sua chave PIX para gerar cobranca.", 422);
+  }
+  if (input.pixApiKey.trim().toUpperCase() === "SANDBOX") {
+    throw new HttpError("Chave PIX de teste detectada. Informe sua chave PIX real.", 422);
+  }
+
+  const pixKey = normalizePixKey(input.pixApiKey);
+  if (!isValidPixKey(pixKey)) {
+    throw new HttpError(
+      "Chave PIX invalida. Use telefone (+55119...), email, CPF, CNPJ ou chave aleatoria.",
+      422
+    );
+  }
+
   const now = new Date();
   const externalSubscriptionId = `pix_sub_${input.tenantId.slice(0, 8)}_${Date.now()}`;
-  const copyPasteCode = [
-    "00020126PIX",
-    input.pixApiKey.slice(0, 8),
-    externalSubscriptionId,
-    `54${Math.round(toNumber(input.plan.price) * 100)}`,
-    "5802BR",
-    "5909BARBEARIA",
-    "6008SAASPREM"
-  ].join("");
+  const amount = toNumber(input.plan.price);
+  const copyPasteCode = buildPixCopyPasteCode({
+    pixKey,
+    amount,
+    txid: externalSubscriptionId.replace(/[^A-Za-z0-9]/g, "").slice(0, 25) || "BARBEARIA",
+    merchantName: sanitizeMerchantText(input.tenantName, 25, "BARBEARIA PREMIUM"),
+    merchantCity: sanitizeMerchantText("SAO PAULO", 15, "SAO PAULO")
+  });
 
   return {
     externalSubscriptionId,
     currentPeriodStart: now,
     currentPeriodEnd: new Date(now.getTime() + 30 * DAY_MS),
     status: SubscriptionStatus.INCOMPLETE,
-    qrCode: `PIX|${externalSubscriptionId}|${copyPasteCode}`,
+    qrCode: copyPasteCode,
     copyPasteCode
   };
 };
 
 const maybeScheduleDowngrade = async (input: {
   subscriptionId: string;
+  subscriptionStatus: SubscriptionStatus;
+  externalSubscriptionId: string | null;
   currentPlanPrice: Prisma.Decimal;
   targetPlanPrice: Prisma.Decimal;
   targetPlanId: string;
   tenantId: string;
 }) => {
+  const isTrialBootstrap =
+    input.subscriptionStatus === SubscriptionStatus.TRIALING && !input.externalSubscriptionId;
+  if (isTrialBootstrap) {
+    return false;
+  }
+
   if (toNumber(input.targetPlanPrice) >= toNumber(input.currentPlanPrice)) {
     return false;
   }
@@ -488,15 +533,32 @@ export const subscribeTenant = async (tenantId: string, input: SubscribeInput) =
     throw new HttpError("Assinatura nao encontrada para o tenant.", 404);
   }
 
-  if (subscription.planId === targetPlan.id) {
+  if (
+    subscription.planId === targetPlan.id &&
+    !input.regenerate &&
+    subscription.status !== SubscriptionStatus.TRIALING
+  ) {
     return {
       status: "NO_CHANGES",
       subscription
     };
   }
 
+  if (
+    subscription.planId === targetPlan.id &&
+    input.regenerate &&
+    subscription.gateway === BillingGateway.STRIPE
+  ) {
+    return {
+      status: "REGENERATE_NOT_SUPPORTED",
+      message: "Para Stripe, regularize o pagamento pelo fluxo do provedor."
+    };
+  }
+
   const downgradeScheduled = await maybeScheduleDowngrade({
     subscriptionId: subscription.id,
+    subscriptionStatus: subscription.status,
+    externalSubscriptionId: subscription.externalSubscriptionId,
     currentPlanPrice: subscription.plan.price,
     targetPlanPrice: targetPlan.price,
     targetPlanId: targetPlan.id,
@@ -510,7 +572,7 @@ export const subscribeTenant = async (tenantId: string, input: SubscribeInput) =
     };
   }
 
-  const gatewayInfo = await resolveGateway(tenantId);
+  const gatewayInfo = await resolveGlobalGateway();
 
   if (targetPlan.name === PlanName.FREE) {
     const updated = await prisma.subscription.update({
@@ -617,6 +679,7 @@ export const subscribeTenant = async (tenantId: string, input: SubscribeInput) =
 
   const pixResult = await createPixSubscription({
     tenantId,
+    tenantName: tenant.name,
     plan: {
       name: targetPlan.name,
       price: targetPlan.price
@@ -648,7 +711,11 @@ export const subscribeTenant = async (tenantId: string, input: SubscribeInput) =
     amount: toNumber(targetPlan.price),
     status: BillingPaymentStatus.PENDING,
     gateway: BillingGateway.PIX,
-    externalRef: pixResult.externalSubscriptionId
+    externalRef: pixResult.externalSubscriptionId,
+    metadata: {
+      qrCode: pixResult.qrCode,
+      copyPasteCode: pixResult.copyPasteCode
+    }
   });
 
   await logBillingEvent(tenantId, "INFO", "SUBSCRIPTION_UPDATED", {
@@ -695,7 +762,7 @@ export const cancelSubscription = async (tenantId: string, input: CancelInput) =
   }
 
   if (subscription.gateway === BillingGateway.STRIPE && subscription.externalSubscriptionId) {
-    const gatewayInfo = await resolveGateway(tenantId);
+    const gatewayInfo = await resolveGlobalGateway();
     if (gatewayInfo.stripeSecretKey) {
       const stripe = getStripeClient(gatewayInfo.stripeSecretKey);
       await stripe.subscriptions.cancel(subscription.externalSubscriptionId);
@@ -754,11 +821,43 @@ export const getBillingStatus = async (tenantId: string) => {
     fireNotification(notifySubscriptionDueSoon(tenantId, diffDays));
   }
 
+  const latestPendingPix = await prisma.billingHistory.findFirst({
+    where: {
+      tenantId,
+      gateway: BillingGateway.PIX,
+      status: BillingPaymentStatus.PENDING
+    },
+    orderBy: {
+      createdAt: "desc"
+    },
+    select: {
+      externalRef: true,
+      metadata: true,
+      createdAt: true
+    }
+  });
+
+  const pixMetadata =
+    latestPendingPix?.metadata &&
+    typeof latestPendingPix.metadata === "object" &&
+    !Array.isArray(latestPendingPix.metadata)
+      ? (latestPendingPix.metadata as { qrCode?: string; copyPasteCode?: string })
+      : null;
+
   return {
     subscription,
     blocked,
     warning3Days,
-    daysToRenewal: diffDays
+    daysToRenewal: diffDays,
+    pendingPix:
+      pixMetadata?.copyPasteCode || pixMetadata?.qrCode
+        ? {
+            externalRef: latestPendingPix?.externalRef ?? null,
+            createdAt: latestPendingPix?.createdAt.toISOString() ?? null,
+            qrCode: pixMetadata?.qrCode ?? null,
+            copyPasteCode: pixMetadata?.copyPasteCode ?? null
+          }
+        : null
   };
 };
 
@@ -984,7 +1083,7 @@ export const handlePixWebhook = async (rawBody: Buffer, signature: string, paylo
     throw new HttpError("Assinatura PIX nao encontrada.", 404);
   }
 
-  const config = await getGatewayConfig(subscription.tenantId);
+  const config = await getGlobalGatewayConfig();
   const secret = config.pixWebhookSecret ?? env.DEFAULT_PIX_WEBHOOK_SECRET;
   if (!secret) {
     throw new HttpError("Webhook PIX nao configurado.", 422);
@@ -1041,4 +1140,202 @@ export const handlePixWebhook = async (rawBody: Buffer, signature: string, paylo
   }
 
   return { received: true };
+};
+
+const BILLING_SWEEP_INTERVAL_MS = 15 * 60 * 1000;
+let billingSweepInterval: NodeJS.Timeout | null = null;
+let billingSweepRunning = false;
+
+export const runBillingLifecycleSweep = async () => {
+  if (billingSweepRunning) {
+    return { skipped: true };
+  }
+
+  billingSweepRunning = true;
+  const now = new Date();
+  const stripeGraceLimit = new Date(now.getTime() - 3 * DAY_MS);
+
+  const result = {
+    expiredTrialsProcessed: 0,
+    pixRenewalsGenerated: 0,
+    canceledAtPeriodEndApplied: 0,
+    staleStripeMarkedPastDue: 0,
+    failures: 0
+  };
+
+  try {
+    const [expiredTrials, renewablePixSubscriptions, cancelAtPeriodEndSubscriptions, staleStripeSubscriptions] =
+      await Promise.all([
+        prisma.subscription.findMany({
+          where: {
+            status: SubscriptionStatus.TRIALING,
+            currentPeriodEnd: { lt: now }
+          },
+          include: {
+            plan: {
+              select: {
+                name: true,
+                price: true
+              }
+            }
+          },
+          take: 200
+        }),
+        prisma.subscription.findMany({
+          where: {
+            gateway: BillingGateway.PIX,
+            status: SubscriptionStatus.ACTIVE,
+            cancelAtPeriodEnd: false,
+            currentPeriodEnd: { lt: now }
+          },
+          include: {
+            plan: {
+              select: {
+                name: true
+              }
+            }
+          },
+          take: 200
+        }),
+        prisma.subscription.findMany({
+          where: {
+            cancelAtPeriodEnd: true,
+            status: {
+              in: [
+                SubscriptionStatus.ACTIVE,
+                SubscriptionStatus.TRIALING,
+                SubscriptionStatus.INCOMPLETE,
+                SubscriptionStatus.PAST_DUE
+              ]
+            },
+            currentPeriodEnd: { lt: now }
+          },
+          select: {
+            id: true,
+            tenantId: true
+          },
+          take: 200
+        }),
+        prisma.subscription.findMany({
+          where: {
+            gateway: BillingGateway.STRIPE,
+            status: SubscriptionStatus.ACTIVE,
+            cancelAtPeriodEnd: false,
+            currentPeriodEnd: { lt: stripeGraceLimit }
+          },
+          select: {
+            id: true,
+            tenantId: true
+          },
+          take: 200
+        })
+      ]);
+
+    for (const subscription of expiredTrials) {
+      try {
+        await subscribeTenant(subscription.tenantId, {
+          planName: subscription.plan.name,
+          regenerate: true
+        });
+        result.expiredTrialsProcessed += 1;
+      } catch (error) {
+        result.failures += 1;
+        await prisma.subscription.update({
+          where: { id: subscription.id },
+          data: {
+            status: SubscriptionStatus.PAST_DUE
+          }
+        });
+        await recordBillingHistory({
+          tenantId: subscription.tenantId,
+          subscriptionId: subscription.id,
+          amount: toNumber(subscription.plan.price),
+          status: BillingPaymentStatus.FAILED,
+          gateway: subscription.gateway,
+          metadata: {
+            reason: "TRIAL_EXPIRED_AUTOMATION_FAILED",
+            error: (error as Error).message
+          }
+        });
+        await logBillingEvent(subscription.tenantId, "WARN", "TRIAL_EXPIRED_MARKED_PAST_DUE", {
+          subscriptionId: subscription.id,
+          error: (error as Error).message
+        });
+      }
+    }
+
+    for (const subscription of renewablePixSubscriptions) {
+      try {
+        await subscribeTenant(subscription.tenantId, {
+          planName: subscription.plan.name,
+          regenerate: true
+        });
+        result.pixRenewalsGenerated += 1;
+      } catch (error) {
+        result.failures += 1;
+        await prisma.subscription.update({
+          where: { id: subscription.id },
+          data: {
+            status: SubscriptionStatus.PAST_DUE
+          }
+        });
+        await logBillingEvent(subscription.tenantId, "WARN", "PIX_RENEWAL_AUTOMATION_FAILED", {
+          subscriptionId: subscription.id,
+          error: (error as Error).message
+        });
+      }
+    }
+
+    for (const subscription of cancelAtPeriodEndSubscriptions) {
+      await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          status: SubscriptionStatus.CANCELED,
+          pendingPlanId: null,
+          currentPeriodEnd: now
+        }
+      });
+      await logBillingEvent(subscription.tenantId, "INFO", "CANCEL_AT_PERIOD_END_APPLIED", {
+        subscriptionId: subscription.id
+      });
+      result.canceledAtPeriodEndApplied += 1;
+    }
+
+    for (const subscription of staleStripeSubscriptions) {
+      await prisma.subscription.update({
+        where: { id: subscription.id },
+        data: {
+          status: SubscriptionStatus.PAST_DUE
+        }
+      });
+      await logBillingEvent(subscription.tenantId, "WARN", "STRIPE_STALE_MARKED_PAST_DUE", {
+        subscriptionId: subscription.id,
+        graceDays: 3
+      });
+      result.staleStripeMarkedPastDue += 1;
+    }
+
+    return result;
+  } finally {
+    billingSweepRunning = false;
+  }
+};
+
+export const startBillingSchedulers = () => {
+  if (billingSweepInterval) {
+    return;
+  }
+
+  void runBillingLifecycleSweep().catch(() => null);
+  billingSweepInterval = setInterval(() => {
+    void runBillingLifecycleSweep().catch(() => null);
+  }, BILLING_SWEEP_INTERVAL_MS);
+};
+
+export const stopBillingSchedulers = () => {
+  if (!billingSweepInterval) {
+    return;
+  }
+  clearInterval(billingSweepInterval);
+  billingSweepInterval = null;
 };

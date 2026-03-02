@@ -144,6 +144,12 @@ model Tenant {
   slug                String              @unique
   email               String?
   phone               String?
+  logoUrl             String?             @map("logo_url")
+  servicePixKey       String?             @map("service_pix_key")
+  bookingEnabled      Boolean             @default(true) @map("booking_enabled")
+  bookingStartTime    String              @default("08:00") @map("booking_start_time")
+  bookingEndTime      String              @default("20:00") @map("booking_end_time")
+  bookingWorkingDays  Int[]               @default([1, 2, 3, 4, 5, 6]) @map("booking_working_days")
   unitId              String              @unique @map("unit_id") @db.Uuid
   planId              String?             @map("plan_id") @db.Uuid
   subscriptionId      String?             @map("subscription_id") @db.Uuid
@@ -174,6 +180,9 @@ model Tenant {
   gamificationPoints  GamificationPoint[]
   badges              Badge[]
   challenges          Challenge[]
+  marketingEvents     MarketingEvent[]
+  statusLogs          TenantStatusLog[]
+  impersonationLogs   ImpersonationLog[]
   createdAt           DateTime            @default(now()) @map("created_at")
   updatedAt           DateTime            @updatedAt @map("updated_at")
 
@@ -794,4 +803,81 @@ model BillingLog {
 
   @@index([tenantId, createdAt])
   @@map("billing_logs")
+}
+
+model MarketingEvent {
+  id         String   @id @default(uuid()) @db.Uuid
+  tenantId   String?  @map("tenant_id") @db.Uuid
+  eventName  String   @map("event_name")
+  eventPath  String   @map("event_path")
+  sessionId  String   @map("session_id")
+  source     String?
+  referrer   String?
+  userAgent  String?  @map("user_agent")
+  ipHash     String?  @map("ip_hash")
+  metadata   Json?
+  tenant     Tenant?  @relation(fields: [tenantId], references: [id], onDelete: SetNull)
+  createdAt  DateTime @default(now()) @map("created_at")
+
+  @@index([createdAt])
+  @@index([eventName, createdAt])
+  @@index([sessionId, createdAt])
+  @@index([source, createdAt])
+  @@index([tenantId, createdAt])
+  @@map("marketing_events")
+}
+
+model SaaSAdmin {
+  id                String             @id @default(uuid()) @db.Uuid
+  email             String             @unique
+  passwordHash      String             @map("password_hash")
+  role              RoleName           @default(SUPER_ADMIN)
+  statusLogs        TenantStatusLog[]
+  impersonationLogs ImpersonationLog[]
+  createdAt         DateTime           @default(now()) @map("created_at")
+  updatedAt         DateTime           @updatedAt @map("updated_at")
+
+  @@map("saas_admins")
+}
+
+model PlatformMetric {
+  id                       String   @id @default(uuid()) @db.Uuid
+  month                    DateTime @unique @db.Date
+  totalMrr                 Decimal  @map("total_mrr") @db.Decimal(12, 2)
+  totalActiveSubscriptions Int      @map("total_active_subscriptions")
+  totalChurn               Decimal  @map("total_churn") @db.Decimal(7, 2)
+  totalNewSubscriptions    Int      @map("total_new_subscriptions")
+  createdAt                DateTime @default(now()) @map("created_at")
+
+  @@index([month])
+  @@map("platform_metrics")
+}
+
+model TenantStatusLog {
+  id             String     @id @default(uuid()) @db.Uuid
+  tenantId       String     @map("tenant_id") @db.Uuid
+  adminId        String?    @map("admin_id") @db.Uuid
+  previousStatus String     @map("previous_status")
+  newStatus      String     @map("new_status")
+  reason         String?
+  tenant         Tenant     @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  admin          SaaSAdmin? @relation(fields: [adminId], references: [id], onDelete: SetNull)
+  createdAt      DateTime   @default(now()) @map("created_at")
+
+  @@index([tenantId, createdAt])
+  @@index([adminId, createdAt])
+  @@map("tenant_status_logs")
+}
+
+model ImpersonationLog {
+  id        String    @id @default(uuid()) @db.Uuid
+  adminId   String    @map("admin_id") @db.Uuid
+  tenantId  String    @map("tenant_id") @db.Uuid
+  admin     SaaSAdmin @relation(fields: [adminId], references: [id], onDelete: Cascade)
+  tenant    Tenant    @relation(fields: [tenantId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now()) @map("created_at")
+
+  @@index([adminId, createdAt])
+  @@index([tenantId, createdAt])
+  @@map("impersonation_logs")
 }
